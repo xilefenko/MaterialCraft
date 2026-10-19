@@ -9,6 +9,7 @@ use materialcraft::mesh::Mesh;
 use materialcraft::paint::Document;
 use materialcraft::projection::{CpuViewProjector, ViewScene};
 use std::path::PathBuf;
+use std::sync::Arc;
 
 /// What a scene was built for: the document's file, the mesh's shape (part, vertex and triangle counts) and which
 /// texture sets are shown.
@@ -34,12 +35,17 @@ impl SceneKey {
 
 #[derive(Default)]
 pub struct ViewPicking {
-    scene: Option<ViewScene>,
+    /// Shared with strokes in flight on their own thread ([`ViewPicking::shared`]).
+    scene: Option<Arc<ViewScene>>,
+    /// The mesh the scene was built from (a copy of the document's).
+    built_from: Option<Arc<Document>>,
+    /// Hidden parts changed while a stroke held the scene: applied once it lets go.
+    hidden_pending: bool,
     /// Per mesh part: shown by its texture set's visibility (as the scene was built).
     by_sets: Vec<bool>,
     /// Mesh parts hidden on top of that (a geometry mask being edited): neither picked nor occluding.
     hidden: Vec<bool>,
-    building: Option<Job<ViewScene>>,
+    building: Option<Job<(ViewScene, Arc<Document>)>>,
     key: Option<SceneKey>,
 }
 
@@ -55,9 +61,11 @@ impl ViewPicking {
         if self.key.as_ref() != Some(&key) {
             let (shared, visible) = (doc.mesh_view(), key.visible.clone());
             self.building = Some(Job::spawn(move |_, tx| {
-                let _ = tx.send(build(&shared, &visible));
+                let scene = build(&shared, &visible);
+                let _ = tx.send((scene, shared));
             }));
             self.scene = None;
+            self.built_from = None;
             self.key = Some(key);
         }
         let mut arrived = None;
@@ -67,9 +75,12 @@ impl ViewPicking {
                 self.building = None;
             }
         }
-        if let Some(scene) = arrived {
+        if let Some((scene, from)) = arrived {
             self.by_sets = (0..doc.doc().mesh.parts.len()).map(|i| scene.is_shown(i)).collect();
-            self.scene = Some(scene);
+            self.scene = Some(Arc::new(scene));
+            self.built_from = Some(from);
+            self.apply_hidden();
+        } else if self.hidden_pending {
             self.apply_hidden();
         }
     }
@@ -84,7 +95,13 @@ impl ViewPicking {
     }
 
     fn apply_hidden(&mut self) {
-        let Some(scene) = &mut self.scene else { return };
+        let Some(arc) = &mut self.scene else { return };
+        // a stroke in flight still paints through it: later
+        let Some(scene) = Arc::get_mut(arc) else {
+            self.hidden_pending = true;
+            return;
+        };
+        self.hidden_pending = false;
         for (i, by_set) in self.by_sets.iter().enumerate() {
             scene.set_shown(i, *by_set && !self.hidden.get(i).copied().unwrap_or(false));
         }
@@ -107,7 +124,13 @@ impl ViewPicking {
 
     /// The picking scene, once built (replays of recorded strokes pick through it).
     pub fn scene(&self) -> Option<&ViewScene> {
-        self.scene.as_ref()
+        self.scene.as_deref()
+    }
+
+    /// The scene and the mesh it was built from, to pick on another thread (a stroke stamped on its own thread).
+    /// While someone holds them, hiding parts waits.
+    pub fn shared(&self) -> Option<(Arc<ViewScene>, Arc<Document>)> {
+        Some((self.scene.clone()?, self.built_from.clone()?))
     }
 
     /// False for mesh parts of hidden texture sets and for hidden parts (they neither show nor hide anything).

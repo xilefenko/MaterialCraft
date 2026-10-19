@@ -4,8 +4,11 @@
 //! `materialcraft-brush`.
 //!
 //! State machine: idle → (pen down on a paintable target with a brush tool and a ready surface) painting → (pen
-//! up, or any document change) idle. While painting, the set's maps are recomposited every few frames; at pen up
-//! once more. A straight-line click (PT-31) is a whole stroke at once, from where the previous stroke ended
+//! up) finishing → idle; any document change ends a stroke at once (waiting for it). While painting, the tiles
+//! painted are recomposited every frame; at pen up the set once more. A frame's pointer moves go to the stroke at
+//! once. Strokes are stamped on their own thread where they can be ([`active`]): the frame hands the samples over
+//! and picks up what was painted, so it keeps its pace at any spacing; the stroke may trail the pointer and
+//! completes after pen up (finishing). A straight-line click (PT-31) is a whole stroke at once, from where the previous stroke ended
 //! ([`LineAnchor`], re-projected into the current view) to the click; without a previous stroke it paints one
 //! stamp. Strokes go through the lazy mouse and symmetry of [`helpers::StrokeHelpers`]; [`overlay`] draws their
 //! visual aids.
@@ -39,6 +42,7 @@ mod overlay;
 pub mod polygon_fill;
 mod retouch;
 pub mod screen_image;
+mod stroke_scene;
 mod surfaces;
 mod uv_overlay;
 #[cfg(test)]
@@ -49,7 +53,7 @@ use super::input::{PointerSample, StrokeInput};
 use super::shell::tools::Tool;
 use super::view_pick::ViewPicking;
 use super::view2d::UvMap;
-use active::{ActiveStroke, Changes, StrokeStart, Through};
+use active::{ActiveStroke, Changes, Ending, PendingStroke, StrokeEnd, StrokeStart, Through};
 pub use brush_state::BrushTools;
 pub use events::ToolEvent;
 use mask_stroke::{ActiveMaskStroke, MaskStrokeStart};
@@ -114,6 +118,11 @@ pub struct Painting {
     pub brush: BrushTools,
     surfaces: SurfaceCache,
     active: Option<ActiveStroke>,
+    /// A stroke after pen up whose worker is still painting, and whether it was painted in the 2D view.
+    finishing: Option<(PendingStroke, bool)>,
+    /// Wait for the stroke's worker in every frame (the benchmarks' frame-by-frame mode): stamping then counts
+    /// in the frame, as before it had a thread of its own.
+    pub wait_for_stamps: bool,
     last_refresh: Option<Instant>,
     strokes: u32,
     /// Where the last stroke ended (the next straight line's start).
@@ -191,16 +200,25 @@ impl Painting {
             let _ = self.surfaces.get(f.doc, *set);
         }
         let mut painted = None;
+        // a frame's moves go to the stroke at once
+        let mut moves: Vec<PointerSample> = Vec::new();
         for ev in input {
+            if let StrokeInput::Move(at) = ev {
+                moves.push(at);
+                continue;
+            }
+            self.moves(&mut f, std::mem::take(&mut moves), &mut painted, &mut report);
             match ev {
                 StrokeInput::Down(at) => {
                     self.end(f.doc, f.picking, &mut report);
+                    self.complete(f.doc, &mut report);
                     if let Some(set) = self.begin(&mut f, tool, at, true, &mut report) {
                         painted = Some(set);
                     }
                 }
                 StrokeInput::Line { to, snap } => {
                     self.end(f.doc, f.picking, &mut report);
+                    self.complete(f.doc, &mut report);
                     let start = self.line_start(&f);
                     let begin_at = PointerSample { pos: start.unwrap_or(to.pos), ..to };
                     if let Some(set) = self.begin(&mut f, tool, begin_at, false, &mut report) {
@@ -221,27 +239,34 @@ impl Painting {
                     }
                     self.end(f.doc, f.picking, &mut report);
                 }
-                StrokeInput::Move(at) => {
-                    let Some(a) = &mut self.active else { continue };
-                    let (factor, stencil) = (factor_for(&self.quick_mask, f.doc, a.set()), stencil_of(&self.images, a.in_uv()));
-                    let fs = factors(&factor, &stencil);
-                    match a.add(f.doc, f.picking, &[at], through(&fs, &self.images, f.tool)) {
-                        Ok(true) => painted = Some(a.set()),
-                        Ok(false) => {}
-                        Err(e) => {
-                            report.message = Some(format!("The stroke stopped: {e}."));
-                            self.end(f.doc, f.picking, &mut report);
-                        }
-                    }
-                }
+                StrokeInput::Move(_) => {}
                 StrokeInput::Up => self.end(f.doc, f.picking, &mut report),
             }
         }
+        self.moves(&mut f, moves, &mut painted, &mut report);
+        // what the stroke's worker painted meanwhile
+        if let Some(a) = &mut self.active {
+            if self.wait_for_stamps {
+                a.wait_painted();
+            }
+            match a.poll(f.doc) {
+                Ok(true) => painted = Some(a.set()),
+                Ok(false) => {}
+                Err(e) => {
+                    report.message = Some(format!("The stroke stopped: {e}."));
+                    self.end(f.doc, f.picking, &mut report);
+                }
+            }
+        }
+        if self.wait_for_stamps {
+            self.complete(f.doc, &mut report);
+        }
+        self.poll_finishing(f.doc, &mut painted, &mut report);
         // every frame, the tiles the stroke painted (a stroke that ended recomposites its set whole)
         if report.refresh.is_none()
             && let Some(set) = painted
         {
-            match self.active.as_mut().filter(|a| a.set() == set).map(|a| (a.layer().to_string(), a.take_changes())) {
+            match self.changes_of(set) {
                 Some((_, None)) => {}
                 Some((layer, Some(Changes::Tiles(tiles)))) => {
                     report.refresh = Some(set);
@@ -250,8 +275,58 @@ impl Painting {
                 Some((_, Some(Changes::Whole))) | None => report.refresh = Some(set),
             }
         }
-        report.busy = self.active.is_some() || self.surfaces.is_building();
+        report.busy = self.active.is_some() || self.finishing.is_some() || self.surfaces.is_building();
         report
+    }
+
+    /// Hands `moves` (a frame's pointer moves, in order) to the stroke in progress at once.
+    fn moves(&mut self, f: &mut PaintFrame, moves: Vec<PointerSample>, painted: &mut Option<usize>, report: &mut PaintReport) {
+        let Some(a) = &mut self.active else { return };
+        if moves.is_empty() {
+            return;
+        }
+        let (factor, stencil) = (factor_for(&self.quick_mask, f.doc, a.set()), stencil_of(&self.images, a.in_uv()));
+        let fs = factors(&factor, &stencil);
+        match a.add(f.doc, f.picking, &moves, through(&fs, &self.images, f.tool)) {
+            Ok(true) => *painted = Some(a.set()),
+            Ok(false) => {}
+            Err(e) => {
+                report.message = Some(format!("The stroke stopped: {e}."));
+                self.end(f.doc, f.picking, report);
+            }
+        }
+    }
+
+    /// The layer painted in `set` and what changed there since the last call: the stroke in progress, else the
+    /// one finishing.
+    fn changes_of(&mut self, set: usize) -> Option<(String, Option<Changes>)> {
+        if let Some(a) = self.active.as_mut().filter(|a| a.set() == set) {
+            return Some((a.layer().to_string(), a.take_changes()));
+        }
+        let (p, _) = self.finishing.as_mut().filter(|(p, _)| p.set() == set)?;
+        Some((p.layer().to_string(), p.take_changes()))
+    }
+
+    /// Takes what a finishing stroke's worker painted; records the stroke once it is done.
+    fn poll_finishing(&mut self, doc: &mut OpenDocument, painted: &mut Option<usize>, report: &mut PaintReport) {
+        let Some((p, _)) = &mut self.finishing else { return };
+        let set = p.set();
+        match p.poll(doc) {
+            Some(end) => {
+                let uv = self.finishing.take().is_some_and(|(_, uv)| uv);
+                self.ended(end, set, uv, report);
+            }
+            None => *painted = Some(set),
+        }
+    }
+
+    /// Waits for a finishing stroke and records it (before anything else may change the document).
+    fn complete(&mut self, doc: &mut OpenDocument, report: &mut PaintReport) {
+        if let Some((p, uv)) = self.finishing.take() {
+            let set = p.set();
+            let end = p.wait(doc);
+            self.ended(end, set, uv, report);
+        }
     }
 
     /// Starts a stroke at `at` (with the lazy mouse if `lazy` and it is on); returns the set it painted or tried.
@@ -343,10 +418,11 @@ impl Painting {
         anchor.start(projector.as_ref().map(|p| p as &dyn ViewProjector))
     }
 
-    /// Ends a stroke in progress (pen up, or before anything else changes the document).
+    /// Ends a stroke in progress and waits until it is complete (before anything else changes the document).
     pub fn finish_stroke(&mut self, doc: &mut OpenDocument, picking: &ViewPicking) -> PaintReport {
         let mut report = PaintReport::default();
         self.end(doc, picking, &mut report);
+        self.complete(doc, &mut report);
         report
     }
 
@@ -361,19 +437,30 @@ impl Painting {
         self.surfaces.get(doc, set).is_some()
     }
 
-    /// Dabs the stroke in progress has placed so far (the performance benchmarks count them).
+    /// Dabs the stroke in progress (or finishing) has placed so far (the performance benchmarks count them).
     pub fn stroke_dabs(&self) -> Option<usize> {
-        self.active.as_ref().map(ActiveStroke::dabs)
+        self.active.as_ref().map(ActiveStroke::dabs).or_else(|| self.finishing.as_ref().map(|(p, _)| p.dabs()))
     }
 
-    /// True while a stroke or a pick gesture is in progress.
+    /// Time the stroke in progress (or finishing) spent stamping on its worker (the benchmarks' per-dab cost).
+    pub fn stroke_worker_busy(&self) -> Option<Duration> {
+        self.active.as_ref().map(ActiveStroke::worker_busy).or_else(|| self.finishing.as_ref().map(|(p, _)| p.worker_busy()))
+    }
+
+    /// Pointer samples of the stroke in progress whose dabs are in the document.
+    pub fn samples_stamped(&self) -> usize {
+        self.active.as_ref().map_or(0, ActiveStroke::samples_painted)
+    }
+
+    /// True while a stroke (also one finishing after pen up) or a pick gesture is in progress.
     pub fn is_stroking(&self) -> bool {
-        self.active.is_some() || self.mask_active.is_some() || self.gesture.is_some()
+        self.active.is_some() || self.finishing.is_some() || self.mask_active.is_some() || self.gesture.is_some()
     }
 
     /// Forgets the document's state (another document was opened or it was closed).
     pub fn forget_document(&mut self) {
         self.active = None;
+        self.finishing = None;
         self.anchor = None;
         self.anchor_uv = false;
         self.surfaces.clear();
@@ -404,18 +491,27 @@ impl Painting {
         self.gesture = None;
         self.end_mask(doc, picking, report);
         let Some(a) = self.active.take() else { return };
+        // one stroke finishing at a time
+        self.complete(doc, report);
         let set = a.set();
         let (factor, stencil) = (factor_for(&self.quick_mask, doc, set), self.stencil_for(a.in_uv()));
         let fs = factors(&factor, &stencil);
         let projection = a.projects().then_some(self.images.projection.as_ref()).flatten();
         let a_in_uv = a.in_uv();
-        let end = a.end(doc, picking, Through { factors: &fs, projection });
+        match a.end(doc, picking, Through { factors: &fs, projection }) {
+            Ending::Ended(end) => self.ended(end, set, a_in_uv, report),
+            Ending::Pending(p) => self.finishing = Some((p, a_in_uv)),
+        }
+    }
+
+    /// A stroke into `set` is complete and recorded: its set is recomposited whole.
+    fn ended(&mut self, end: StrokeEnd, set: usize, uv: bool, report: &mut PaintReport) {
         if let Some(problem) = end.problem {
             report.message = Some(format!("The stroke had a problem: {problem}."));
         }
         if end.anchor.is_some() {
             self.anchor = end.anchor;
-            self.anchor_uv = a_in_uv;
+            self.anchor_uv = uv;
         }
         report.refresh = Some(set);
         self.last_refresh = Some(Instant::now());

@@ -48,6 +48,8 @@ fn painting() -> Painting {
     p.brush.paint.size_space = SizeSpace::Texture;
     p.brush.paint.hardness = 1.0;
     p.brush.value_mut(Channel::BaseColor).value = [1.0, 0.0, 0.0, 1.0];
+    // a stroke completes within its frames (one test below doesn't wait)
+    p.wait_for_stamps = true;
     p
 }
 
@@ -142,4 +144,36 @@ fn the_polygon_fill_picks_in_uv_space() {
     assert_eq!(report.message, None);
     assert_eq!(report.refresh, Some(0));
     assert_eq!(doc.history().len(), steps + 1, "one pick, one step");
+}
+
+#[test]
+fn a_stroke_on_its_worker_completes_after_pen_up_with_the_same_pixels() {
+    let points = [[10.0, 20.0], [14.0, 22.0], [20.0, 20.0], [26.0, 24.0], [30.0, 20.0]];
+    let (mut waited, picking, mut p) = (document(), ViewPicking::default(), painting());
+    ready(&mut p, &mut waited);
+    p.frame(stroke(&points), frame(&mut waited, &picking, Tool::Paint, TargetPart::Content));
+
+    let (mut doc, mut p) = (document(), painting());
+    p.wait_for_stamps = false;
+    ready(&mut p, &mut doc);
+    let before = doc.history().len();
+    let mut input = stroke(&points);
+    let up = input.pop();
+    // moves spread over frames, then pen up; the frames don't wait for the worker
+    for ev in input {
+        p.frame(vec![ev], frame(&mut doc, &picking, Tool::Paint, TargetPart::Content));
+    }
+    p.frame(up.into_iter().collect(), frame(&mut doc, &picking, Tool::Paint, TargetPart::Content));
+    let mut refreshed = None;
+    for _ in 0..2000 {
+        if !p.is_stroking() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(1));
+        refreshed = p.frame(Vec::new(), frame(&mut doc, &picking, Tool::Paint, TargetPart::Content)).refresh.or(refreshed);
+    }
+    assert!(!p.is_stroking(), "the stroke completes");
+    assert_eq!(refreshed, Some(0), "and its set is recomposited");
+    assert_eq!(doc.history().len(), before + 1, "one stroke, one step");
+    assert!(doc.doc() == waited.doc(), "the same document as a stroke stamped within its frames");
 }
