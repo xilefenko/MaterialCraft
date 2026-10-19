@@ -163,8 +163,8 @@ fn a_stroke_on_its_worker_completes_after_pen_up_with_the_same_pixels() {
     for ev in input {
         p.frame(vec![ev], frame(&mut doc, &picking, Tool::Paint, TargetPart::Content));
     }
-    p.frame(up.into_iter().collect(), frame(&mut doc, &picking, Tool::Paint, TargetPart::Content));
-    let mut refreshed = None;
+    // (it may complete within the frame's short wait for the worker, or in a later frame)
+    let mut refreshed = p.frame(up.into_iter().collect(), frame(&mut doc, &picking, Tool::Paint, TargetPart::Content)).refresh;
     for _ in 0..2000 {
         if !p.is_stroking() {
             break;

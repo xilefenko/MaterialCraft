@@ -190,22 +190,31 @@ impl StrokeWorker {
     /// Ends the stroke ([`StrokeWorker::finish`]) and waits until it is complete; then polls.
     pub fn wait(&mut self, set: &mut TextureSet) -> Progress {
         self.finish();
-        let (m, ready) = &*self.mailbox;
-        let mut s = lock(m);
-        while s.done.is_none() && !self.thread.is_finished() {
-            // a worker that stops without completing (it failed) notifies nobody: look again now and then
-            s = ready.wait_timeout(s, Duration::from_millis(20)).map_or_else(|e| e.into_inner().0, |r| r.0);
-        }
-        drop(s);
+        self.wait_painted(None);
         self.poll(set)
     }
 
-    /// Waits until every point handed over is painted (or painting stopped); a later poll picks the paint up.
-    pub fn wait_painted(&self) {
+    /// Waits until every point handed over is painted (after pen up: until the stroke is done), or painting
+    /// stopped, or `limit` passed (`None`: no limit); a later poll picks the paint up. True if it got there.
+    pub fn wait_painted(&self, limit: Option<Duration>) -> bool {
+        let until = limit.map(|l| Instant::now() + l);
         let (m, ready) = &*self.mailbox;
         let mut s = lock(m);
-        while s.samples < self.sent && s.done.is_none() && !self.thread.is_finished() {
-            s = ready.wait_timeout(s, Duration::from_millis(20)).map_or_else(|e| e.into_inner().0, |r| r.0);
+        loop {
+            let there = if self.finishing { s.done.is_some() } else { s.samples >= self.sent || s.done.is_some() };
+            if there || self.thread.is_finished() {
+                return there;
+            }
+            // a worker that stops without completing (it failed) notifies nobody: look again now and then
+            let mut wait = Duration::from_millis(20);
+            if let Some(u) = until {
+                let left = u.saturating_duration_since(Instant::now());
+                if left.is_zero() {
+                    return false;
+                }
+                wait = wait.min(left);
+            }
+            s = ready.wait_timeout(s, wait).map_or_else(|e| e.into_inner().0, |r| r.0);
         }
     }
 

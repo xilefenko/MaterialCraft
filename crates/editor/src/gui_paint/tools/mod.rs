@@ -75,6 +75,10 @@ use surfaces::SurfaceCache;
 /// strokes update the tiles they painted every frame.
 const REFRESH: Duration = Duration::from_millis(120);
 
+/// How long a frame waits for the stroke's worker before it shows what is painted so far: a stroke that keeps up
+/// shows in the frame of its input, one that can't trails without holding the frame up.
+const STAMP_WAIT: Duration = Duration::from_millis(4);
+
 /// What one frame of painting asks of the screen.
 #[derive(Debug, Default, PartialEq)]
 pub struct PaintReport {
@@ -246,9 +250,8 @@ impl Painting {
         self.moves(&mut f, moves, &mut painted, &mut report);
         // what the stroke's worker painted meanwhile
         if let Some(a) = &mut self.active {
-            if self.wait_for_stamps {
-                a.wait_painted();
-            }
+            // the paint shows in this frame if the worker gets there within a short wait, else it trails
+            a.wait_painted(if self.wait_for_stamps { None } else { Some(STAMP_WAIT) });
             match a.poll(f.doc) {
                 Ok(true) => painted = Some(a.set()),
                 Ok(false) => {}
@@ -311,6 +314,7 @@ impl Painting {
     fn poll_finishing(&mut self, doc: &mut OpenDocument, painted: &mut Option<usize>, report: &mut PaintReport) {
         let Some((p, _)) = &mut self.finishing else { return };
         let set = p.set();
+        p.wait_done(STAMP_WAIT);
         match p.poll(doc) {
             Some(end) => {
                 let uv = self.finishing.take().is_some_and(|(_, uv)| uv);

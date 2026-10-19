@@ -272,10 +272,10 @@ impl ActiveStroke {
         }
     }
 
-    /// Waits until the worker has painted every sample handed over (the benchmarks' frame-by-frame mode).
-    pub fn wait_painted(&self) {
+    /// Waits until the worker has painted every sample handed over, at most `limit` (`None`: no limit).
+    pub fn wait_painted(&self, limit: Option<std::time::Duration>) {
         if let Stamping::Worker(w) = &self.stamping {
-            w.wait_painted();
+            w.wait_painted(limit);
         }
     }
 
@@ -444,6 +444,11 @@ impl PendingStroke {
     /// What the stroke changed since the last call (`None`: nothing).
     pub fn take_changes(&mut self) -> Option<Changes> {
         self.changes.take()
+    }
+
+    /// Waits until the worker is done, at most `limit`.
+    pub fn wait_done(&self, limit: std::time::Duration) {
+        self.worker.wait_painted(Some(limit));
     }
 
     /// Takes what the worker painted; once it is done, records the stroke and returns how it ended.
