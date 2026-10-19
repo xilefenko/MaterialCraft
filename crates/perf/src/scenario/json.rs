@@ -119,6 +119,12 @@ impl StrokeSpec {
         if let Some(s) = self.size {
             v.insert("size", s);
         }
+        if let Some(s) = self.spacing {
+            v.insert("spacing", s);
+        }
+        if let Some(f) = self.frame_ms {
+            v.insert("frame_ms", f);
+        }
         if let Some(s) = &self.set {
             v.insert("set", s.as_str());
         }
@@ -134,7 +140,11 @@ impl StrokeSpec {
 
     /// Missing fields keep their defaults; unknown ones are an error (a typo would otherwise be ignored).
     pub fn from_json(v: &Value) -> Result<StrokeSpec, String> {
-        known_keys(v, &["tool", "preset", "size", "target", "layer", "set", "symmetry", "path", "samples", "per_frame", "primed", "undo_redo"], "stroke")?;
+        known_keys(
+            v,
+            &["tool", "preset", "size", "spacing", "target", "layer", "set", "symmetry", "path", "samples", "per_frame", "frame_ms", "primed", "undo_redo"],
+            "stroke",
+        )?;
         let mut s = StrokeSpec::default();
         let text = |key: &str| v.get(key).map(|x| x.as_str().ok_or_else(|| format!("\"{key}\" is a string")));
         if let Some(t) = text("tool") {
@@ -157,6 +167,12 @@ impl StrokeSpec {
         }
         if let Some(x) = v.get("size") {
             s.size = Some(x.as_f64().filter(|x| *x > 0.0).ok_or("\"size\" is a positive number")? as f32);
+        }
+        if let Some(x) = v.get("spacing") {
+            s.spacing = Some(x.as_f64().filter(|x| *x > 0.0).ok_or("\"spacing\" is a positive number")? as f32);
+        }
+        if let Some(x) = v.get("frame_ms") {
+            s.frame_ms = Some(x.as_f64().filter(|x| *x > 0.0 && x.is_finite()).ok_or("\"frame_ms\" is a positive number")?);
         }
         if let Some(x) = v.get("symmetry") {
             s.symmetry = Symmetry::from_json(x)?;

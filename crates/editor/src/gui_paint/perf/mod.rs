@@ -22,6 +22,7 @@ mod identity;
 mod measure;
 pub mod runner;
 mod source;
+mod stroke_paced;
 mod stroke_play;
 
 use super::channel_view::ChannelView;

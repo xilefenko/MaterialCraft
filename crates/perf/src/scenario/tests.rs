@@ -8,6 +8,8 @@ fn sample() -> Scenario {
         action: Action::Stroke(StrokeSpec {
             tool: StrokeTool::Erase,
             size: Some(0.25),
+            spacing: Some(0.5),
+            frame_ms: Some(16.0),
             target: StrokeTarget::Mask,
             symmetry: Symmetry::Radial { axis: 1, count: 6 },
             path: PathShape::Spiral,
@@ -42,6 +44,8 @@ fn rejects_typos_and_bad_values() {
     for bad in [
         r#"{"id": "x", "source": {"mesh": "/m.obj"}, "action": {"stroke": {"tol": "paint"}}}"#,
         r#"{"id": "x", "source": {"mesh": "/m.obj"}, "action": {"stroke": {"tool": "pencil"}}}"#,
+        r#"{"id": "x", "source": {"mesh": "/m.obj"}, "action": {"stroke": {"spacing": 0}}}"#,
+        r#"{"id": "x", "source": {"mesh": "/m.obj"}, "action": {"stroke": {"frame_ms": -16}}}"#,
         r#"{"id": "x", "source": {"mesh": "/m.obj", "resolution": 1000}, "action": "open"}"#,
         r#"{"id": "x", "source": {"document": "/d"}, "action": {"edits": ["opacty"]}}"#,
         r#"{"id": "x", "source": {"document": "/d"}, "action": "open", "repeat": 0}"#,

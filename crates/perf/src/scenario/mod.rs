@@ -66,6 +66,8 @@ pub struct StrokeSpec {
     pub preset: Option<PathBuf>,
     /// Brush diameter (the preset's size units: a fraction of the mesh radius by default); `None`: the preset's.
     pub size: Option<f32>,
+    /// Distance between dabs as a share of their size (the preset's units); `None`: the preset's.
+    pub spacing: Option<f32>,
     pub target: StrokeTarget,
     pub layer: LayerChoice,
     /// The texture set painted, by name; `None`: the first set of a new project, else the set under the stroke.
@@ -76,6 +78,10 @@ pub struct StrokeSpec {
     pub samples: usize,
     /// Samples delivered per frame.
     pub per_frame: usize,
+    /// Play in real time with frames this many milliseconds apart: samples arrive at `per_frame` per frame period
+    /// and each frame takes every sample that arrived by its start, so a slow frame makes the next one bigger
+    /// (as in the window). The recomposites are not waited for. `None`: frame by frame, each recomposite waited for.
+    pub frame_ms: Option<f64>,
     /// Paint the same path once before measuring, so the eraser and smudge have something to work on.
     pub primed: bool,
     /// After the strokes, undo the last one and redo it (measured).
@@ -88,6 +94,7 @@ impl Default for StrokeSpec {
             tool: StrokeTool::Paint,
             preset: None,
             size: None,
+            spacing: None,
             target: StrokeTarget::Content,
             layer: LayerChoice::TopPaint,
             set: None,
@@ -95,6 +102,7 @@ impl Default for StrokeSpec {
             path: PathShape::Wave,
             samples: 200,
             per_frame: 2,
+            frame_ms: None,
             primed: false,
             undo_redo: false,
         }

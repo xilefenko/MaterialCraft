@@ -5,6 +5,7 @@
 
 use super::Bench;
 use super::measure::{Recomposite, put_all, put_group};
+use super::stroke_paced::{PacedStroke, PacedTally};
 use crate::gui_paint::input::{PointerSample, StrokeInput};
 use crate::gui_paint::panels::layers::LayerEvent;
 use crate::gui_paint::shell::tools::Tool;
@@ -40,6 +41,8 @@ struct Tally {
     wholes: Vec<Recomposite>,
     tiles: usize,
     dabs: usize,
+    /// Time the stroke's worker spent stamping.
+    worker: Duration,
     total: Duration,
 }
 
@@ -64,6 +67,8 @@ pub fn play(b: &mut Bench, spec: &StrokeSpec, repeat: u32, new_project: bool, r:
     let target = PaintTarget { layer: LayerRef::new(set_id, layer), part };
 
     let mut painting = Painting::default();
+    // frame by frame, each frame waits for its stamps (as when stamping ran in the frame); in real time it doesn't
+    painting.wait_for_stamps = spec.frame_ms.is_none();
     let tool = configure(&mut painting, spec)?;
     wait("the brush surface", || {
         picking.poll(Some(&b.doc));
@@ -78,6 +83,17 @@ pub fn play(b: &mut Bench, spec: &StrokeSpec, repeat: u32, new_project: bool, r:
         let mut ignored = Tally::default();
         stroke(b, &mut painting, &picking, camera, Tool::Paint, &target, set, &frames, &mut ignored);
     }
+    if let Some(frame_ms) = spec.frame_ms {
+        let mut t = PacedTally::default();
+        let mut paced = PacedStroke { painting: &mut painting, picking: &picking, camera, tool, target: &target, set };
+        for _ in 0..repeat {
+            paced.play(b, spec, frame_ms, |t| point(spec.path, t), &mut t)?;
+            b.settle();
+        }
+        t.report(r);
+        r.put("history_steps", b.doc.history().len() as f64);
+        return Ok(());
+    }
     let mut t = Tally::default();
     for _ in 0..repeat {
         stroke(b, &mut painting, &picking, camera, tool, &target, set, &frames, &mut t);
@@ -88,6 +104,7 @@ pub fn play(b: &mut Bench, spec: &StrokeSpec, repeat: u32, new_project: bool, r:
     r.put_ms("stroke_total_ms", t.total);
     r.put_stat("stamp_frame_ms", Stat::of_durations(&t.stamp));
     r.put("stamp_dab_ms", ms(t.stamp.iter().sum::<Duration>()) / t.dabs.max(1) as f64);
+    r.put("worker_dab_ms", ms(t.worker) / t.dabs.max(1) as f64);
     r.put_stat("ask_ms", Stat::of_durations(&t.ask));
     r.put_stat("poll_ms", Stat::of_durations(&t.poll));
     let all: Vec<Recomposite> = t.patches.iter().chain(&t.wholes).copied().collect();
@@ -194,6 +211,9 @@ fn configure(painting: &mut Painting, spec: &StrokeSpec) -> Result<Tool, String>
     if let (Some(size), Some(p)) = (spec.size, brush.preset_mut(tool)) {
         p.size = size;
     }
+    if let (Some(spacing), Some(p)) = (spec.spacing, brush.preset_mut(tool)) {
+        p.spacing = spacing;
+    }
     let sym = &mut brush.helpers.symmetry;
     match spec.symmetry {
         Symmetry::Off => sym.on = false,
@@ -245,6 +265,7 @@ fn stroke(
     t: &mut Tally,
 ) {
     let mut dabs = 0;
+    let mut worker = Duration::ZERO;
     let started = Instant::now();
     for input in frames.iter().cloned() {
         let at = Instant::now();
@@ -252,6 +273,7 @@ fn stroke(
         let report = painting.frame(input, frame);
         t.stamp.push(at.elapsed());
         dabs = painting.stroke_dabs().unwrap_or(dabs);
+        worker = painting.stroke_worker_busy().unwrap_or(worker);
         if let Some(s) = report.refresh {
             // what the screen does with the report (`PaintMode::after_painting`), then waiting for the result
             let before = b.scene.stats();
@@ -272,4 +294,5 @@ fn stroke(
     }
     t.total += started.elapsed();
     t.dabs += dabs;
+    t.worker += worker;
 }
