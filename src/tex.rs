@@ -212,20 +212,15 @@ pub fn par_map<T: Send + Default + Clone, F: Fn(usize) -> T + Sync>(n: usize, f:
     if n == 0 {
         return out;
     }
-    let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1).max(1);
-    let per = (n + threads - 1) / threads;
-    let fref = &f;
     let my = my_job();
-    std::thread::scope(|s| {
-        for (ci, chunk) in out.chunks_mut(per).enumerate() {
-            s.spawn(move || {
-                for (i, slot) in chunk.iter_mut().enumerate() {
-                    if i % 4096 == 0 && stale(my) {
-                        return;
-                    }
-                    *slot = fref(ci * per + i);
-                }
-            });
+    // runs of at most 4096 items, so a stale job stops soon
+    let run = n.div_ceil((crate::paint::par::helpers() + 1) * 4).clamp(1, 4096);
+    crate::paint::par::for_each_run_mut(&mut out, run, |first, chunk| {
+        if stale(my) {
+            return;
+        }
+        for (i, slot) in chunk.iter_mut().enumerate() {
+            *slot = f(first + i);
         }
     });
     out
