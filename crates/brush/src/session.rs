@@ -233,13 +233,9 @@ impl StrokeSession {
             factors.push(p);
         }
         let ctx = StampContext { surface: scene.surface, index: scene.index, space, factors: &factors };
-        let mut changed = Vec::new();
-        for d in dabs {
-            changed.extend(self.stamp.apply(&ctx, d, targets)?);
-            self.placed += 1;
-        }
-        changed.sort_unstable();
-        changed.dedup();
+        // all of them at once: the same pixels as one by one, each changed tile written once
+        let changed = self.stamp.apply_all(&ctx, dabs, targets)?;
+        self.placed += dabs.len();
         Ok(changed)
     }
 

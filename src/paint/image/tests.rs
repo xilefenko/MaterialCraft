@@ -114,6 +114,44 @@ fn dirty_tracking() {
 }
 
 #[test]
+fn update_regions_touches_only_their_pixels() {
+    for f in [fmt(PixelLayout::Rgba, SampleType::U8), fmt(PixelLayout::Rgba, SampleType::F16), fmt(PixelLayout::GrayAlpha, SampleType::F32)] {
+        let mut img = TiledImage::new(300, 200, f).unwrap();
+        img.update_tiles(&[(0, 0)], |_, px| px.iter_mut().enumerate().for_each(|(i, p)| *p = [(i % 7) as f32 / 7.0, 0.5, 0.25, 1.0]));
+        img.clear_dirty();
+        let before = img.clone();
+        // one region inside tile (0, 0), one cut to tile (2, 1) (it starts there), one outside the image
+        let regions = [Rect { x: 10, y: 20, w: 5, h: 3 }, Rect { x: 290, y: 190, w: 40, h: 40 }, Rect { x: 900, y: 0, w: 4, h: 4 }];
+        let mut seen = std::sync::Mutex::new(Vec::new());
+        img.update_regions(&regions, |r, px| {
+            assert_eq!(px.len(), r.area());
+            seen.lock().unwrap().push(r);
+            px.iter_mut().for_each(|p| *p = [1.0, 0.0, 0.0, 1.0]);
+        });
+        let mut seen = std::mem::take(seen.get_mut().unwrap());
+        seen.sort_by_key(|r| (r.y, r.x));
+        assert_eq!(seen, vec![Rect { x: 10, y: 20, w: 5, h: 3 }, Rect { x: 290, y: 190, w: 10, h: 10 }]);
+        assert_eq!(img.dirty_tiles(), vec![(0, 0), (2, 1)]);
+        for y in 0..200 {
+            for x in 0..300 {
+                let inside = (10..15).contains(&x) && (20..23).contains(&y) || x >= 290 && y >= 190;
+                if inside {
+                    assert_eq!(img.get(x, y)[0], 1.0, "{f:?} ({x}, {y})");
+                } else {
+                    assert_eq!(img.get(x, y), before.get(x, y), "{f:?} ({x}, {y}) unchanged");
+                }
+            }
+        }
+        // the bytes outside the regions too
+        let raw = |i: &TiledImage| i.tiles.first().and_then(|t| t.as_ref()).map(|t| t.bytes().to_vec()).unwrap();
+        let (a, b) = (raw(&img), raw(&before));
+        let bpp = f.bytes_per_pixel();
+        let differ: Vec<usize> = a.chunks(bpp).zip(b.chunks(bpp)).enumerate().filter(|(_, (p, q))| p != q).map(|(i, _)| i).collect();
+        assert!(differ.iter().all(|i| (10..15).contains(&(i % 128)) && (20..23).contains(&(i / 128))), "{f:?}");
+    }
+}
+
+#[test]
 fn update_tiles_sees_current_pixels_and_convert_keeps_them() {
     let mut img = TiledImage::new(140, 140, fmt(PixelLayout::Rgba, SampleType::F16)).unwrap();
     img.fill([0.25, 0.5, 0.75, 1.0]);

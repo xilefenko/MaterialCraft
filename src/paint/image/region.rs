@@ -1,6 +1,6 @@
 //! Bulk pixel access to a [`TiledImage`] by region and by tile, including the parallel tile update.
 
-use super::{Rect, T, Tile, TileBuf, TiledImage, tile_rect};
+use super::{Rect, T, TILE_SIZE, Tile, TileBuf, TiledImage, tile_rect};
 use crate::paint::par::for_each_mut;
 use crate::paint::pixel::PixelFormat;
 
@@ -77,6 +77,51 @@ impl TiledImage {
         });
         for (d, wnt) in self.dirty.iter_mut().zip(wanted) {
             *d |= wnt;
+        }
+    }
+
+    /// Like [`Self::update_tiles`] for parts of tiles: each of `regions` lies inside one tile (it is cut to the
+    /// tile holding its top-left corner; at most one region per tile counts). Only its pixels are decoded, handed to
+    /// `f` with the region and written back; the rest of the tile stays as it is. Tiles are allocated as needed and
+    /// marked dirty.
+    pub fn update_regions<F: Fn(Rect, &mut [[f32; 4]]) + Sync>(&mut self, regions: &[Rect], f: F) {
+        let (w, h, fmt) = (self.width, self.height, self.format);
+        let tiles_x = self.tiles_x();
+        let mut wanted: Vec<Option<Rect>> = vec![None; self.tiles.len()];
+        for r in regions {
+            let Some(i) = self.tile_index(r.x / TILE_SIZE, r.y / TILE_SIZE) else { continue };
+            let Some(t) = tile_rect(w, h, r.x / TILE_SIZE, r.y / TILE_SIZE) else { continue };
+            let (x1, y1) = ((r.x + r.w).min(t.x + t.w), (r.y + r.h).min(t.y + t.h));
+            if let (Some(slot), true) = (wanted.get_mut(i), r.x < x1 && r.y < y1) {
+                slot.get_or_insert(Rect { x: r.x, y: r.y, w: x1 - r.x, h: y1 - r.y });
+            }
+        }
+        let mut jobs: Vec<(Rect, u32, &mut TileBuf)> =
+            self.tiles.iter_mut().zip(&wanted).enumerate().filter_map(|(i, (t, r))| r.map(|r| (r, i as u32, t))).collect();
+        for_each_mut(&mut jobs, |_, (r, i, tile)| {
+            let (ox, oy) = ((*i % tiles_x * TILE_SIZE) as usize, (*i / tiles_x * TILE_SIZE) as usize);
+            let (x0, y0) = (r.x as usize - ox, r.y as usize - oy);
+            let mut px = vec![[0.0f32; 4]; r.area()];
+            let buf = tile.get_or_insert_with(|| Tile::zeroed(T * T * fmt.bytes_per_pixel())).make_mut();
+            let bpp = fmt.bytes_per_pixel();
+            for (row, line) in px.chunks_exact_mut(r.w as usize).enumerate() {
+                let o = ((y0 + row) * T + x0) * bpp;
+                let Some(src) = buf.get(o..o + line.len() * bpp) else { continue };
+                for (p, b) in line.iter_mut().zip(src.chunks_exact(bpp)) {
+                    *p = fmt.decode(b);
+                }
+            }
+            f(*r, &mut px);
+            for (row, line) in px.chunks_exact(r.w as usize).enumerate() {
+                let o = ((y0 + row) * T + x0) * bpp;
+                let Some(dst) = buf.get_mut(o..o + line.len() * bpp) else { continue };
+                for (p, b) in line.iter().zip(dst.chunks_exact_mut(bpp)) {
+                    fmt.encode(*p, b);
+                }
+            }
+        });
+        for (d, r) in self.dirty.iter_mut().zip(wanted) {
+            *d |= r.is_some();
         }
     }
 
