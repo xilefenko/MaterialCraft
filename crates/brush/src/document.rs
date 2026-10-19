@@ -125,6 +125,11 @@ impl DocumentStroke {
         self.session.dabs()
     }
 
+    /// Where the stroke's images sit in its texture set.
+    pub(crate) fn slots(&self) -> crate::worker::TargetSlots {
+        crate::worker::TargetSlots { target: self.target.clone(), resolved: self.resolved.clone(), mode: self.mode }
+    }
+
     /// The stroke's camera (3D-view strokes).
     pub fn camera(&self) -> Option<materialcraft::camera::Camera> {
         self.session.camera()

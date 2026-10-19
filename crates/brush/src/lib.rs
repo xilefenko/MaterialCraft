@@ -20,6 +20,8 @@
 //! - [`replay`]: painting a recorded stroke again, bit for bit; imported strokes with a mapped [`ReplayBrush`].
 //! - [`stroke`]: input transforms in front of a session: [`LazyMouse`], straight lines ([`LineAnchor`]).
 //! - [`symmetry`]: symmetric copies in a stroke record's form, built the same way live and on replay.
+//! - [`worker`]: [`StrokeWorker`], a document stroke stamped on its own thread (the input thread only hands points
+//!   over and picks up what was painted).
 //! - [`tips`]: alpha-image tips found in the asset libraries ([`FolderAlphas`]); [`preview`]: a brush's sample
 //!   stroke for its tray thumbnail ([`stroke_preview`]).
 //!
@@ -39,6 +41,7 @@ pub mod stroke;
 pub mod symmetry;
 pub mod target;
 pub mod tips;
+pub mod worker;
 
 pub use clone_source::{CloneSource, SourceMode, texel_under};
 pub use document::{Base, DocumentStroke, Ended, Prepared};
@@ -54,6 +57,7 @@ pub use session::{Finished, SessionScene, StrokeSession, StrokeSetup};
 pub use stroke::{LazyMouse, LineAnchor};
 pub use target::{PaintTarget, PaintValues, Resolved, TargetPart, mode_for};
 pub use tips::{AlphaSource, FolderAlphas, NoAlphas, alpha_for, decode_alpha};
+pub use worker::{Done, Progress, StrokeWorker, WorkerScene};
 
 use materialcraft::paint::edit::EditError;
 use materialcraft::stamp::StampError;
