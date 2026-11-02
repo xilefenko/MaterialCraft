@@ -96,6 +96,7 @@ use materialcraft::projection::CpuViewProjector;
 use occlusion_check::OcclusionCheck;
 use panels::PanelEvent;
 use panels::bakers::BakersPanel;
+use panels::blockers::BlockersPanel;
 use panels::import_report::ReportPanel;
 use panels::layers::LayerPanel;
 use panels::layout::Screen;
@@ -138,6 +139,8 @@ pub struct PaintMode {
     viewport: Viewport,
     display: ChannelView,
     report: ReportPanel,
+    /// The blockers panel's view of the open document.
+    blockers: BlockersPanel,
     log: LogPanel,
     /// The texture set a log entry led to, highlighted for a moment.
     focus: Option<Focus>,
@@ -206,6 +209,7 @@ impl PaintMode {
             viewport,
             display: launch.channel.unwrap_or(ChannelView::Material),
             report: ReportPanel::default(),
+            blockers: BlockersPanel::default(),
             log: LogPanel::default(),
             focus: None,
             layers: LayerPanel::default(),
@@ -352,6 +356,7 @@ impl PaintMode {
         let screen = Screen {
             document: self.document.as_ref(),
             report: &mut self.report,
+            blockers: &mut self.blockers,
             layers: &mut self.layers,
             viewport: &mut self.viewport,
             display: self.display,

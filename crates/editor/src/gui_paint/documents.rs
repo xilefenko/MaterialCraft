@@ -114,6 +114,7 @@ impl PaintMode {
             self.diag.emit(diag_entries::import_summary(report, &doc.source().display().to_string(), doc.summary.as_deref()));
         }
         self.layers.reset();
+        self.blockers.reset();
         // the quick mask and the tools' caches belong to the document that was open
         self.painting.forget_document();
         self.scene.set_tint(None);
@@ -140,6 +141,7 @@ impl PaintMode {
     pub(super) fn close(&mut self) {
         self.scene.clear(self.viewport.gpu());
         self.layers.reset();
+        self.blockers.reset();
         self.document = None;
         self.diag.info(Area::Project, "Document closed.");
     }

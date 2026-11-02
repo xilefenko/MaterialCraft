@@ -15,6 +15,7 @@ use super::super::tools::BrushTools;
 use super::super::tools::screen_image::ScreenImages;
 use super::super::viewport::Viewport;
 use super::bakers::{BakeStatus, BakersPanel};
+use super::blockers::BlockersPanel;
 use super::import_report::ReportPanel;
 use super::layers::LayerPanel;
 use super::log::LogPanel;
@@ -30,6 +31,7 @@ use materialcraft::diag::RingBuffer;
 pub struct Bodies<'a> {
     pub document: Option<&'a OpenDocument>,
     pub report: &'a mut ReportPanel,
+    pub blockers: &'a mut BlockersPanel,
     pub layers: &'a mut LayerPanel,
     pub viewport: &'a mut Viewport,
     pub display: ChannelView,
@@ -83,6 +85,12 @@ impl DockContent<PaintPanel> for Bodies<'_> {
             PaintPanel::ImportReport => {
                 margin.show(ui, |ui| match self.document {
                     Some(doc) => self.report.show(ui, doc.doc().import_report.as_ref(), doc.summary.as_deref()),
+                    None => no_document(ui),
+                });
+            }
+            PaintPanel::Blockers => {
+                margin.show(ui, |ui| match self.document {
+                    Some(doc) => self.blockers.show(ui, doc, self.events),
                     None => no_document(ui),
                 });
             }
