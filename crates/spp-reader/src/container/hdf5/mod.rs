@@ -58,6 +58,12 @@ impl Hdf5File {
         Self::from_source(Box::new(FileSource::new(File::open(path)?)?))
     }
 
+    /// A file already in memory, for tests.
+    #[cfg(test)]
+    pub(crate) fn from_memory(bytes: Vec<u8>) -> Result<Self, Hdf5Error> {
+        Self::from_source(Box::new(source::MemorySource(bytes)))
+    }
+
     fn from_source(source: Box<dyn ReadAt>) -> Result<Self, Hdf5Error> {
         let superblock = Superblock::read(source.as_ref())?;
         let storage = Storage::new(source, superblock.base, superblock.sizes);
