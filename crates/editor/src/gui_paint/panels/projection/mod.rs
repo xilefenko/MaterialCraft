@@ -15,6 +15,8 @@ mod textures;
 mod volume;
 
 use super::PanelEvent;
+use super::layers::content_lock;
+use super::layers::lock_text;
 use crate::gui_paint::projection_edit::GizmoSettings;
 use crate::gui_paint::tools::helpers::SymmetrySettings;
 use crate::gui_theme;
@@ -73,24 +75,32 @@ pub fn show(ui: &mut Ui, p: ProjectionUi, events: &mut Vec<PanelEvent>) {
             }
             Some((target, fill)) => {
                 ui.label(RichText::new(describe(p.doc, target)).color(gui_theme::LABEL_TEXT));
+                let lock = content_lock::content_lock(p.doc, &target.layer);
+                if let Some(lock) = lock {
+                    let why = lock_text::reasons(lock, 12).join("\n");
+                    ui.colored_label(gui_theme::ACCENT, content_lock::NOTE).on_hover_text(format!("{}\n{why}", lock_text::heading(lock)));
+                }
                 if matches!(fill.source, FillSource::Uniform(_)) {
                     ui.weak("A uniform fill looks the same in every projection.");
                 }
+                let editable = lock.is_none();
                 let mut edited = fill.projection.clone();
-                mode(ui, &mut edited);
-                if let ProjectionMode::Unknown(u) = &edited.mode {
-                    ui.weak(format!("This projection ({}) comes from a newer version and can't be edited here.", u.mode));
-                } else {
-                    placement::show(ui, &mut edited);
-                    volume::show(ui, &mut edited, p.symmetry, &mut gizmo_settings);
-                }
-                if edited != fill.projection {
+                let mut source = fill.source.clone();
+                ui.add_enabled_ui(editable, |ui| {
+                    mode(ui, &mut edited);
+                    if let ProjectionMode::Unknown(u) = &edited.mode {
+                        ui.weak(format!("This projection ({}) comes from a newer version and can't be edited here.", u.mode));
+                    } else {
+                        placement::show(ui, &mut edited);
+                        volume::show(ui, &mut edited, p.symmetry, &mut gizmo_settings);
+                    }
+                    textures::show(ui, &mut source, fill.original.as_deref());
+                });
+                if editable && edited != fill.projection {
                     let gesture = ui.input(|i| i.pointer.any_down());
                     events.push(PanelEvent::Projection(ProjectionEvent::Set { target: target.clone(), projection: Box::new(edited), gesture }));
                 }
-                let mut source = fill.source.clone();
-                textures::show(ui, &mut source, fill.original.as_deref());
-                if source != fill.source {
+                if editable && source != fill.source {
                     let gesture = ui.input(|i| i.pointer.any_down());
                     events.push(PanelEvent::Projection(ProjectionEvent::Source { target: target.clone(), source: Box::new(source), gesture }));
                 }

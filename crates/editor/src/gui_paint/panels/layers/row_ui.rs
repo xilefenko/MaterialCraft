@@ -180,11 +180,13 @@ pub fn layer_row(ui: &mut Ui, rect: Rect, look: LayerLook) -> LayerRowOut {
     out
 }
 
-/// Which effect a row shows: its layer, stack and index.
+/// Which effect a row shows: its layer, stack and index, and whether it can be switched or deleted (not on a locked
+/// layer).
 pub struct EffectAt<'a> {
     pub owner: &'a str,
     pub stack: StackId,
     pub index: usize,
+    pub editable: bool,
 }
 
 /// One effect row (`picked`: its properties are being edited); returns (row response, on/off toggled, delete clicked).
@@ -196,7 +198,7 @@ pub fn effect_row<D: EffectDomain>(
     e: &materialcraft::paint::Effect<D>,
     picked: bool,
 ) -> (Response, bool, bool) {
-    let EffectAt { owner, stack, index } = at;
+    let EffectAt { owner, stack, index, editable } = at;
     let id = Id::new(("effect_row", owner, stack == StackId::Mask, index));
     let row = ui.interact(rect, id, Sense::click());
     let painter = ui.painter_at(rect);
@@ -214,11 +216,14 @@ pub fn effect_row<D: EffectDomain>(
     if e.enabled {
         painter.rect_filled(tick.shrink(3.5), 1.0, gui_theme::ACCENT);
     }
-    let toggled = ui.interact(tick, id.with("on"), Sense::click()).on_hover_text("Switch the effect on or off").clicked();
+    let toggled = editable && ui.interact(tick, id.with("on"), Sense::click()).on_hover_text("Switch the effect on or off").clicked();
     let place = if stack == StackId::Mask { "mask" } else { "content" };
     let label = if e.label.is_empty() { effect_name(&e.kind).to_string() } else { format!("{} ({})", e.label, effect_name(&e.kind)) };
     let col = if e.enabled { gui_theme::HEADER_TEXT } else { gui_theme::ICON_DISABLED };
     painter.text(pos2(tick.max.x + 6.0, rect.center().y), Align2::LEFT_CENTER, format!("{label} · {place}"), FontId::proportional(11.5), col);
+    if !editable {
+        return (row.on_hover_text("The layer is locked: its effects can't be changed"), false, false);
+    }
     let del = Rect::from_min_size(pos2(rect.max.x - 20.0, rect.min.y + 3.0), vec2(16.0, EFFECT_ROW - 6.0));
     painter.text(del.center(), Align2::CENTER_CENTER, "×", FontId::proportional(13.0), gui_theme::ICON);
     let deleted = ui.interact(del, id.with("del"), Sense::click()).on_hover_text("Delete the effect").clicked();
