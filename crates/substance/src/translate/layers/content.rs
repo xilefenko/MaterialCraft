@@ -15,6 +15,7 @@ use super::images::{ImageSource, channel_pixels};
 use super::projection_map::ProjectionTable;
 use super::replay::StrokeReplay;
 use crate::model::{EffectHeader, FillEffect, FilterEffect, PaintEffect, PainterEffect, PainterSource};
+use crate::translate::blockers::{Blocker, BlockerKey, BlockerKind};
 use crate::translate::replacements::{self, ProceduralPlan, Replacement, channel_textures, materials};
 use materialcraft::paint::{BlendMode, Channel, TiledImage};
 use materialcraft::projection::Projection;
@@ -145,14 +146,23 @@ impl ContentEvaluator<'_> {
                     };
                     self.walk(&group.effects, channel, &mut inner);
                     if inner.written {
-                        opaque(state, "effect group with its own blending");
+                        opaque(
+                            state,
+                            Blocker::feature("effect-group-blending", "effect group with its own blending"),
+                        );
                     }
                 }
                 PainterEffect::Paint(p) if self.replayed(&[p], channel, None, state) => {}
                 PainterEffect::Paint(p) if p.stroke_count() > 0 && self.writes(&p.header, channel) => {
                     let colours = p.colors.is_empty() || p.colors.iter().any(|c| c.channels().contains(painter));
                     if colours {
-                        opaque(state, format!("{} strokes", p.tool.name()));
+                        opaque(
+                            state,
+                            Blocker::new(
+                                BlockerKey::new(BlockerKind::Strokes, p.tool.name()),
+                                format!("{} strokes", p.tool.name()),
+                            ),
+                        );
                     }
                 }
                 PainterEffect::Filter(f) if self.writes(&f.header, channel) => {
@@ -165,7 +175,7 @@ impl ContentEvaluator<'_> {
                             status.and(&blend.status());
                             composited(state, status);
                         }
-                        None => opaque(state, format!("filter \"{name}\"")),
+                        None => opaque(state, Blocker::substance(name, format!("filter \"{name}\""))),
                     }
                 }
                 PainterEffect::Levels(l) if self.writes(&l.header, channel) => {
@@ -173,10 +183,15 @@ impl ContentEvaluator<'_> {
                     composited(state, blend.status());
                 }
                 PainterEffect::ColorSelection(c) if self.writes(&c.header, channel) => {
-                    opaque(state, "colour selection")
+                    opaque(state, Blocker::feature("colour-selection-content", "colour selection"))
                 }
-                PainterEffect::PolygonFill(p) if self.writes(&p.header, channel) => opaque(state, "polygon fill"),
-                PainterEffect::Other(raw) => opaque(state, format!("unknown effect {}", raw.class)),
+                PainterEffect::PolygonFill(p) if self.writes(&p.header, channel) => {
+                    opaque(state, Blocker::feature("polygon-fill-content", "polygon fill"))
+                }
+                PainterEffect::Other(raw) => opaque(
+                    state,
+                    Blocker::class(&raw.class, format!("unknown effect {}", raw.class)),
+                ),
                 _ => {}
             }
         }
@@ -208,7 +223,7 @@ impl ContentEvaluator<'_> {
             }
             Err(why) => {
                 if paints.iter().any(|p| self.writes(&p.header, channel)) {
-                    opaque(state, format!("brush strokes not replayable: {why}"));
+                    opaque(state, why.through("brush strokes not replayable"));
                 }
             }
         }
@@ -279,7 +294,10 @@ impl ContentEvaluator<'_> {
                     self.bitmap(fill, &b.url, channel, blend.opacity, &mut alone);
                     alone.status.and(&blend.status());
                     match alone.value {
-                        Acc::Opaque => opaque(state, "bitmap fill that cannot be read"),
+                        Acc::Opaque => opaque(
+                            state,
+                            Blocker::feature("unreadable-bitmap", "bitmap fill that cannot be read"),
+                        ),
                         _ => composited(state, alone.status),
                     }
                 }
@@ -311,7 +329,7 @@ impl ContentEvaluator<'_> {
                             }
                             composited(state, status);
                         }
-                        None => opaque(state, format!("procedural fill \"{name}\"")),
+                        None => opaque(state, Blocker::substance(name, format!("procedural fill \"{name}\""))),
                     },
                 }
             }
@@ -323,21 +341,28 @@ impl ContentEvaluator<'_> {
                         s.and(&blend.status());
                         composited(state, s);
                     }
-                    false => opaque(state, format!("fill from an anchor: {}", status.reasons().join("; "))),
+                    false => {
+                        for b in status.blockers() {
+                            opaque(state, b.through("fill from an anchor"));
+                        }
+                    }
                 }
             }
-            PainterSource::Other(raw) => opaque(state, format!("unknown source {}", raw.class)),
+            PainterSource::Other(raw) => opaque(
+                state,
+                Blocker::class(&raw.class, format!("unknown source {}", raw.class)),
+            ),
         }
     }
 
     fn bitmap(&self, fill: &FillEffect, url: &str, channel: Channel, coverage: f32, state: &mut State) {
         state.written = true;
         let Some(spec) = self.channels.spec(channel) else {
-            return opaque(state, "undeclared channel");
+            return opaque(state, Blocker::feature("undeclared-channel", "undeclared channel"));
         };
         let loaded = match self.images.load(url) {
             Ok(l) => l,
-            Err(e) => return opaque(state, e),
+            Err(e) => return opaque(state, Blocker::feature("unreadable-bitmap", e)),
         };
         let mapped = self.projections.map(fill);
         let image = channel_pixels(&loaded, spec);
@@ -381,8 +406,8 @@ fn composited(state: &mut State, status: Computability) {
     state.status.and(&status);
 }
 
-fn opaque(state: &mut State, reason: impl Into<String>) {
+fn opaque(state: &mut State, blocker: Blocker) {
     state.written = true;
     state.value = Acc::Opaque;
-    state.status.and(&Computability::not_computable(reason));
+    state.status.and(&Computability::not_computable(blocker));
 }

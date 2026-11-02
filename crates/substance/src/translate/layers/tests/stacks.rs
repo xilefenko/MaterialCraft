@@ -129,7 +129,11 @@ fn uncomputable_layers_are_kept_with_reasons_and_hidden_ones_do_not_count() {
         .lock
         .as_ref()
         .expect("a layer that can't be computed is locked");
-    assert_eq!(lock.reasons, ["procedural fill \"rust\""]);
+    assert_eq!(lock.reasons.len(), 1);
+    assert_eq!(
+        (lock.reasons[0].key.as_str(), lock.reasons[0].text.as_str()),
+        ("substance:rust", "procedural fill \"rust\"")
+    );
     assert!(stack.layers[0].lock.is_none(), "an exact layer stays editable");
     assert_eq!(
         StackStrategy::choose(&stack.verdict, true, &agrees()),

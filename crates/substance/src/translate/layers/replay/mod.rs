@@ -24,6 +24,7 @@ use super::computability::Computability;
 use super::decal::geometry::SetGeometry;
 use super::images::ImageSource;
 use crate::model::{PaintEffect, PaintTool, PainterSource, PainterTextureSet};
+use crate::translate::blockers::{Blocker, BlockerKey, BlockerKind};
 use jobs::ReplayJobs;
 use materialcraft::paint::{Channel, PixelFormat, PixelLayout, SampleType, TiledImage};
 use materialcraft::stamp::{ChannelTarget, StampMode};
@@ -115,8 +116,8 @@ impl Key {
 /// times with parts swapped, `mcsub verify-layers`' isolation). Only use it for the same set, mesh and size.
 #[derive(Default)]
 pub struct ReplayCache {
-    masks: Mutex<HashMap<Key, Result<Replayed<TiledImage>, String>>>,
-    contents: Mutex<HashMap<Key, Result<Replayed<ContentImages>, String>>>,
+    masks: Mutex<HashMap<Key, Result<Replayed<TiledImage>, Blocker>>>,
+    contents: Mutex<HashMap<Key, Result<Replayed<ContentImages>, Blocker>>>,
 }
 
 /// Replays the paint effects of one texture set. See the module docs.
@@ -152,19 +153,23 @@ impl<'a> StrokeReplay<'a> {
     }
 
     /// The pixels of a mask paint effect (grey × alpha), or why its strokes cannot be replayed.
-    pub fn mask(&self, effect: &PaintEffect) -> Result<Replayed<TiledImage>, String> {
+    pub fn mask(&self, effect: &PaintEffect) -> Result<Replayed<TiledImage>, Blocker> {
         cached(&self.cache().masks, Key::of(&[effect]), || self.paint_mask(effect))
     }
 
     /// The pixels `effects` (a paint layer's brush work, in order) paint into the declared `channels`, or why they
     /// cannot be replayed.
-    pub fn content(&self, effects: &[&PaintEffect], channels: &SetChannels) -> Result<Replayed<ContentImages>, String> {
+    pub fn content(
+        &self,
+        effects: &[&PaintEffect],
+        channels: &SetChannels,
+    ) -> Result<Replayed<ContentImages>, Blocker> {
         cached(&self.cache().contents, Key::of(effects), || {
             self.paint_content(effects, channels)
         })
     }
 
-    fn paint_mask(&self, effect: &PaintEffect) -> Result<Replayed<TiledImage>, String> {
+    fn paint_mask(&self, effect: &PaintEffect) -> Result<Replayed<TiledImage>, Blocker> {
         let value = match effect.tool {
             PaintTool::Brush => mask_value(effect)?,
             // erasing a mask paints black over what the effect's strokes reach (PT-20)
@@ -173,7 +178,7 @@ impl<'a> StrokeReplay<'a> {
         effect::check(effect)?;
         let scene = self.scene()?;
         let (w, h) = scene.size();
-        let mut image = TiledImage::new(w, h, MASK_FORMAT).map_err(|e| e.to_string())?;
+        let mut image = TiledImage::new(w, h, MASK_FORMAT).map_err(|e| failed(e.to_string()))?;
         let mut targets = [ChannelTarget {
             image: &mut image,
             value: [value, value, value, 1.0],
@@ -193,7 +198,7 @@ impl<'a> StrokeReplay<'a> {
         &self,
         effects: &[&PaintEffect],
         channels: &SetChannels,
-    ) -> Result<Replayed<ContentImages>, String> {
+    ) -> Result<Replayed<ContentImages>, Blocker> {
         let plans = effects
             .iter()
             .map(|e| effect::check(e).and_then(|_| content::values(e, channels)))
@@ -205,7 +210,7 @@ impl<'a> StrokeReplay<'a> {
             if plans.iter().any(|p| p.paints(spec.channel)) {
                 images.push((
                     spec.channel,
-                    TiledImage::new(w, h, spec.layer_format()).map_err(|e| e.to_string())?,
+                    TiledImage::new(w, h, spec.layer_format()).map_err(|e| failed(e.to_string()))?,
                 ));
             }
         }
@@ -286,27 +291,27 @@ impl<'a> StrokeReplay<'a> {
                     t.replayed += 1;
                     t.strokes += n;
                 }
-                Err(why) => t.refuse(&why),
+                Err(why) => t.refuse(&why.text),
             }
         }
         t.refused.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
         t
     }
 
-    fn scene(&self) -> Result<&SetScene, String> {
+    fn scene(&self) -> Result<&SetScene, Blocker> {
         self.scene
             .get_or_init(|| SetScene::build(self.geometry, self.resolution))
             .as_ref()
-            .ok_or_else(|| "the set's mesh has no usable UVs".to_string())
+            .ok_or_else(|| refused("no-uvs", "the set's mesh has no usable UVs"))
     }
 }
 
 /// The cached result for `key`, made with `make` the first time.
 fn cached<K: std::hash::Hash + Eq, T: Clone>(
-    cache: &Mutex<HashMap<K, Result<T, String>>>,
+    cache: &Mutex<HashMap<K, Result<T, Blocker>>>,
     key: K,
-    make: impl FnOnce() -> Result<T, String>,
-) -> Result<T, String> {
+    make: impl FnOnce() -> Result<T, Blocker>,
+) -> Result<T, Blocker> {
     if let Some(r) = cache.lock().ok().and_then(|d| d.get(&key).cloned()) {
         return r;
     }
@@ -318,10 +323,23 @@ fn cached<K: std::hash::Hash + Eq, T: Clone>(
 }
 
 /// The grey value a brush effect paints into a mask (`sourceColor`'s uniform; 1 without one).
-fn mask_value(effect: &PaintEffect) -> Result<f32, String> {
+fn mask_value(effect: &PaintEffect) -> Result<f32, Blocker> {
     match effect.colors.first() {
         None => Ok(1.0),
         Some(PainterSource::Uniform(u)) => Ok((u.color[0] * u.opacity).clamp(0.0, 1.0)),
-        Some(other) => Err(format!("mask painted with a {} source", other.kind())),
+        Some(other) => Err(refused(
+            &format!("mask-source-{}", other.kind()),
+            format!("mask painted with a {} source", other.kind()),
+        )),
     }
+}
+
+/// A brush replay refusal: `what` names it in the key (`brush:<what>`), `text` says it.
+pub fn refused(what: &str, text: impl Into<String>) -> Blocker {
+    Blocker::new(BlockerKey::new(BlockerKind::Brush, what), text)
+}
+
+/// A replay that failed on its way (an image that could not be made, a stroke the engine refused).
+pub fn failed(text: impl Into<String>) -> Blocker {
+    refused("replay-failed", text)
 }

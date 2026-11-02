@@ -24,7 +24,7 @@ pub struct BrushOffer {
 impl BrushOffer {
     /// The brush of `effect`, or why it is not offered.
     pub fn of(effect: &PaintEffect) -> Result<BrushOffer, String> {
-        let mapped = brush_map::map(effect)?;
+        let mapped = brush_map::map(effect).map_err(|b| b.text)?;
         let mut preset = BrushPreset {
             name: String::new(),
             ..mapped.mesh.preset
@@ -40,7 +40,7 @@ impl BrushOffer {
                 if procedural.name() != "shape" {
                     return Err(format!("Substance brush alpha \"{}\"", procedural.name()));
                 }
-                let shape = ShapeTip::from_tweaks(&procedural.tweaks)?;
+                let shape = ShapeTip::from_tweaks(&procedural.tweaks).map_err(|b| b.text)?;
                 preset.tip = Tip::Round;
                 preset.hardness = shape.hardness;
                 preset.roundness = shape.size_ratio;

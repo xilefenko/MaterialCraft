@@ -8,6 +8,7 @@ use super::content::ContentEvaluator;
 use super::effect_data::AnchorIds;
 use super::mask::MaskEvaluator;
 use crate::model::{LayerKind, PainterEffect, PainterLayer, PainterMask};
+use crate::translate::blockers::Blocker;
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -18,8 +19,12 @@ pub struct AnchorTable {
 impl AnchorTable {
     /// The status of the anchor with `uid`; not computable when the set has no such anchor.
     pub fn status(&self, uid: Option<u64>) -> Computability {
-        uid.and_then(|u| self.status.get(&u).cloned())
-            .unwrap_or_else(|| Computability::not_computable("reference to an anchor that is not in the set"))
+        uid.and_then(|u| self.status.get(&u).cloned()).unwrap_or_else(|| {
+            Computability::not_computable(Blocker::feature(
+                "missing-anchor",
+                "reference to an anchor that is not in the set",
+            ))
+        })
     }
 
     /// Every anchor of `layers` (the whole tree) with the status of what it holds. `content` and `masks` evaluate

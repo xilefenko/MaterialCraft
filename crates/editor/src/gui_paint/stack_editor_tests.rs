@@ -131,7 +131,7 @@ fn each_geometry_mask_change_is_its_own_step() {
 fn a_locked_layer_toggles_refuses_content_changes_and_unlocks_in_one_undoable_step() {
     let mut doc = open().doc().clone();
     if let Some(l) = doc.texture_sets[0].layer_mut("a") {
-        l.lock = Some(materialcraft::paint::LayerLock::new("test import", vec!["procedural".into()]));
+        l.lock = Some(materialcraft::paint::LayerLock::new("test import", vec![materialcraft::paint::LockReason::new("", "procedural")]));
     }
     let mut d = OpenDocument::new(doc, PathBuf::from("test.mcpaint"), None);
     apply(&mut d, LayerEvent::SetVisible(lr("a"), false)).expect("a locked layer can be hidden");

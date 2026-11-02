@@ -8,6 +8,7 @@ pub mod pick;
 
 use super::computability::Computability;
 use crate::model::{HitGranularity, PainterView, PolygonFillEffect};
+use crate::translate::blockers::Blocker;
 use geometry::SetGeometry;
 use materialcraft::paint::effect::{Pick, PickMode, Selection};
 use std::collections::{BTreeMap, BTreeSet};
@@ -42,13 +43,16 @@ pub fn runs(geometry: Option<&SetGeometry>, decal: &PolygonFillEffect) -> DecalR
     let Some(geometry) = geometry else {
         return DecalRuns {
             runs: Vec::new(),
-            status: Computability::not_computable("polygon fill without the mesh"),
+            status: Computability::not_computable(Blocker::feature(
+                "polygon-fill-without-mesh",
+                "polygon fill without the mesh",
+            )),
         };
     };
     if decal.unread > 0 {
-        status.and(&Computability::not_computable(format!(
-            "polygon fill: {} picks not read",
-            decal.unread
+        status.and(&Computability::not_computable(Blocker::feature(
+            "polygon-fill-unread-picks",
+            format!("polygon fill: {} picks not read", decal.unread),
         )));
     }
     // (colour, granularity, triangles by part name) per run
@@ -61,7 +65,10 @@ pub fn runs(geometry: Option<&SetGeometry>, decal: &PolygonFillEffect) -> DecalR
         let picked = match pick::pick(geometry, hit) {
             Ok(p) => p,
             Err(e) => {
-                status.and(&Computability::not_computable(format!("polygon fill pick: {e:?}")));
+                status.and(&Computability::not_computable(Blocker::feature(
+                    "polygon-fill-pick",
+                    format!("polygon fill pick: {e:?}"),
+                )));
                 continue;
             }
         };

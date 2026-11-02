@@ -154,7 +154,7 @@ fn verify_project(path: &Path, label: &str, options: &VerifyOptions) -> Result<P
                     &example,
                 ));
             }
-            if let (Some(_), true, Some(modes)) = (score, options.fit, projection_fit::modes_in(status.reasons())) {
+            if let (Some(_), true, Some(modes)) = (score, options.fit, projection_fit::modes_in(&status.reasons())) {
                 let example = format!("{label} / {} / {}", painter.name, set.channels.label(channel));
                 out.projection_fits.push(ProjectionFitRecord::measure(
                     &set,

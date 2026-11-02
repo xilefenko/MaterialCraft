@@ -3,7 +3,7 @@
 //! `asset` (since 0.6) names the asset a smart-material folder was made from. `see_through: true` (since 0.11, written
 //! only when set) marks see-through paint content, whose images are its strokes replayed on the composite below.
 //! Kind `instance` (since 0.15) carries `instance_of: {"set", "layer"}`, the layer it takes its parameters from.
-//! `lock: {"source", "reasons"}` (since 0.18, written only when set) marks a layer whose content is locked
+//! `lock: {"source", "reasons": [{"key", "text"}]}` (since 0.18, written only when set) marks a layer whose content is locked
 //! ([`crate::paint::lock`]).
 
 use super::extras::loc;
@@ -15,8 +15,8 @@ use crate::paint::format::slot::ImageSlot;
 use crate::paint::format::strokes::StrokeSlot;
 use crate::paint::stroke::StrokeOwner;
 use crate::paint::{
-    Channel, ChannelSpec, ColorSpace, Fill, FillImageRef, FillSource, ImageFill, InstanceLink, Layer, LayerImage, LayerKind, LayerLock, PaintContent,
-    TextureFill,
+    Channel, ChannelSpec, ColorSpace, Fill, FillImageRef, FillSource, ImageFill, InstanceLink, Layer, LayerImage, LayerKind, LayerLock, LockReason,
+    PaintContent, TextureFill,
 };
 use crate::projection::Projection;
 
@@ -100,7 +100,7 @@ fn write(l: &Layer, set: &SetScope, ctx: &WriteCtx) -> Value {
 }
 
 fn write_lock(lock: &LayerLock) -> Value {
-    let reasons: Vec<Value> = lock.reasons.iter().map(|r| Value::from(r.as_str())).collect();
+    let reasons: Vec<Value> = lock.reasons.iter().map(|r| Value::object().with("key", r.key.as_str()).with("text", r.text.as_str())).collect();
     Value::object().with("source", lock.source.as_str()).with("reasons", Value::Array(reasons))
 }
 
@@ -108,12 +108,11 @@ fn read_lock(v: &Value, at: String) -> Result<LayerLock, FormatError> {
     let mut o = Obj::new(v, at)?;
     let source = o.str("source")?.to_string();
     let path = o.path("reasons");
-    let reasons = o
-        .array("reasons")?
-        .iter()
-        .enumerate()
-        .map(|(i, r)| r.as_str().map(str::to_string).ok_or_else(|| FormatError::manifest(format!("{path}[{i}]"), "expected a string")))
-        .collect::<Result<Vec<_>, _>>()?;
+    let mut reasons = Vec::new();
+    for (i, r) in o.array("reasons")?.iter().enumerate() {
+        let mut r = Obj::new(r, format!("{path}[{i}]"))?;
+        reasons.push(LockReason::new(r.opt_str("key")?.unwrap_or_default(), r.str("text")?));
+    }
     Ok(LayerLock::new(source, reasons))
 }
 

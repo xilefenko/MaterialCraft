@@ -6,26 +6,28 @@ use super::super::strokes;
 use super::brush_map::{self, MappedBrush};
 use super::scene::SetScene;
 use super::tip;
+use super::{failed, refused};
 use crate::model::{PaintEffect, PaintTool};
+use crate::translate::blockers::Blocker;
 use materialcraft::paint::stroke::{StrokeData, ViewKind};
 use materialcraft::stamp::ChannelTarget;
 use materialcraft_brush::{PaintValues, replay_imported};
 
 /// Why `effect` cannot be replayed, if it cannot.
-pub fn check(effect: &PaintEffect) -> Result<(), String> {
+pub fn check(effect: &PaintEffect) -> Result<(), Blocker> {
     match effect.tool {
         PaintTool::Brush | PaintTool::Eraser => {}
-        PaintTool::Projection => return Err("projection painting".into()),
-        PaintTool::Smudge => return Err("smudge strokes".into()),
+        PaintTool::Projection => return Err(refused("projection", "projection painting")),
+        PaintTool::Smudge => return Err(refused("smudge", "smudge strokes")),
     }
     if effect.path_strokes > 0 {
-        return Err("3D path strokes".into());
+        return Err(refused("3d-path", "3D path strokes"));
     }
     if effect.stencil.is_some() {
-        return Err("painted through a stencil".into());
+        return Err(refused("stencil", "painted through a stencil"));
     }
     if effect.strokes.iter().any(|s| !s.complete) {
-        return Err("stroke points not fully readable".into());
+        return Err(refused("unreadable-points", "stroke points not fully readable"));
     }
     Ok(())
 }
@@ -37,7 +39,7 @@ pub fn paint_strokes(
     scene: &SetScene,
     images: &dyn ImageSource,
     targets: &mut [ChannelTarget],
-) -> Result<(usize, Vec<String>), String> {
+) -> Result<(usize, Vec<String>), Blocker> {
     check(effect)?;
     let mapped: MappedBrush = brush_map::map(effect)?;
     let (tip, _) = tip::tip(&effect.alpha, images)?;
@@ -58,7 +60,7 @@ pub fn paint_strokes(
         brush.extras.tip = Some(tip.clone());
         brush.model = scene.model;
         brush.lazy = brush_map::lazy(painter.lazy_distance);
-        replay_imported(stroke, &brush, &values, &replay, targets).map_err(|e| e.to_string())?;
+        replay_imported(stroke, &brush, &values, &replay, targets).map_err(|e| failed(e.to_string()))?;
     }
     Ok((record.strokes.len(), mapped.unknown))
 }

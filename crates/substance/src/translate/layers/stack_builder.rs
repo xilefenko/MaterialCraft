@@ -21,8 +21,9 @@ use super::replay::{ReplayTally, StrokeReplay};
 use super::set_surface::SurfaceSource;
 use super::verdict::{LayerNote, MaskFailure, StackVerdict};
 use crate::model::{LayerKind as PainterKind, PainterLayer};
+use crate::translate::blockers::Blocker;
 use crate::translate::replacements::ProceduralPlan;
-use materialcraft::paint::{Channel, Layer, LayerKind, LayerLock};
+use materialcraft::paint::{Channel, Layer, LayerKind, LayerLock, LockReason};
 
 /// What locked an imported layer ([`LayerLock::source`]).
 pub const LOCK_SOURCE: &str = "Substance 3D Painter import";
@@ -153,7 +154,8 @@ impl StackBuilder<'_> {
                 let content = self.content(l);
                 let mut unknown = Computability::Exact;
                 if let PainterKind::Other(class) = painter {
-                    unknown = Computability::not_computable(format!("unknown layer class {class}"));
+                    unknown =
+                        Computability::not_computable(Blocker::class(class, format!("unknown layer class {class}")));
                 }
                 for c in &content {
                     note.and(&c.status);
@@ -179,7 +181,7 @@ impl StackBuilder<'_> {
             }
         };
         // Not computable: what we hold of it is not what Painter shows, and editing it would build on a wrong start.
-        let lock = (!note.is_computable()).then(|| LayerLock::new(LOCK_SOURCE, note.reasons().to_vec()));
+        let lock = (!note.is_computable()).then(|| LayerLock::new(LOCK_SOURCE, lock_reasons(note.blockers())));
         if !note.is_exact() {
             v.note(LayerNote {
                 path: path.clone(),
@@ -226,7 +228,7 @@ impl StackBuilder<'_> {
     /// Effects on a folder itself (rare) are not computable; they count against every channel they write.
     fn folder_content(&self, l: &PainterLayer, inner: &Context, v: &mut StackVerdict, note: &mut Computability) {
         for c in self.content(l) {
-            let status = Computability::not_computable("effects on a folder");
+            let status = Computability::not_computable(Blocker::feature("folder-effects", "effects on a folder"));
             note.and(&status);
             if inner.visible && inner.inherited(c.channel).is_some() {
                 v.contribute(c.channel, &status);
@@ -275,4 +277,12 @@ fn unique_id(uid: Option<u64>, ids: &mut BTreeSet<String>) -> String {
         .unwrap_or(base);
     ids.insert(id.clone());
     id
+}
+
+/// The lock reasons for `blockers`: each blocker's key and text.
+pub fn lock_reasons(blockers: &[Blocker]) -> Vec<LockReason> {
+    blockers
+        .iter()
+        .map(|b| LockReason::new(b.key.to_string(), b.text.clone()))
+        .collect()
 }

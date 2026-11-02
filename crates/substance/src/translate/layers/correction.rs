@@ -14,13 +14,15 @@ use super::cache_score::final_look;
 use super::island_texels::IslandTexels;
 use materialcraft::generators;
 use materialcraft::paint::{
-    BlendMode, Channel, Compositor, FillContext, Layer, LayerKind, LayerLock, PaintContent, SampleType, TextureSet,
-    TiledImage,
+    BlendMode, Channel, Compositor, FillContext, Layer, LayerKind, LayerLock, LockReason, PaintContent, SampleType,
+    TextureSet, TiledImage,
 };
 use materialcraft::tex::Tex;
 
 pub const CORRECTION_ID: &str = "painter-correction";
 pub const CORRECTION_NAME: &str = "Painter correction";
+/// The key of the correction's lock reason: it is Painter's pixels, unlocked by nothing but a stack that needs none.
+pub const CORRECTION_KEY: &str = "feature:painter-correction";
 
 /// A texel differing by more than this many steps of its channel's storage (any component) is corrected: above the 1
 /// step of rounding either way, so constants rounded differently don't count. Steps are 1/255 for 8-bit channels,
@@ -88,7 +90,10 @@ impl Correction {
             return None;
         }
         layer.kind = LayerKind::Paint(content);
-        layer.lock = Some(LayerLock::new(source, vec![describe(&coverage)]));
+        layer.lock = Some(LayerLock::new(
+            source,
+            vec![LockReason::new(CORRECTION_KEY, describe(&coverage))],
+        ));
         Some(Correction { layer, coverage })
     }
 
@@ -205,7 +210,10 @@ mod tests {
         let c = Correction::build(&set, &result, &NO_FILL_CONTEXT, None, "test").unwrap();
         assert!((c.coverage[0].1 - 1.0 / 16.0).abs() < 1e-6, "{:?}", c.coverage);
         assert!(
-            c.layer.lock.as_ref().is_some_and(|l| l.reasons[0].contains("6.2%")),
+            c.layer
+                .lock
+                .as_ref()
+                .is_some_and(|l| l.reasons[0].text.contains("6.2%")),
             "{:?}",
             c.layer.lock
         );

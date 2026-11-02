@@ -45,8 +45,8 @@ pub struct MappedBrush {
     pub unknown: Vec<String>,
 }
 
-/// Why a paint effect's brush cannot be replayed.
-pub type Blocker = String;
+use super::refused;
+pub use crate::translate::blockers::Blocker;
 
 /// Maps the brush of `effect`; `None` when the effect has no brush (Painter's defaults are taken then).
 pub fn map(effect: &PaintEffect) -> Result<MappedBrush, Blocker> {
@@ -54,10 +54,12 @@ pub fn map(effect: &PaintEffect) -> Result<MappedBrush, Blocker> {
     let brush = effect.brush.as_ref().unwrap_or(&default);
     let emitter = match &brush.emitter {
         PainterEmitter::Stroke(e) => e,
-        PainterEmitter::Physics { .. } => return Err("particle brush (physics emitter)".into()),
-        PainterEmitter::Stroke3D(_) => return Err("3D path brush".into()),
-        PainterEmitter::Other(class) if class.is_empty() => return Err("brush without an emitter".into()),
-        PainterEmitter::Other(class) => return Err(format!("brush emitter {class}")),
+        PainterEmitter::Physics { .. } => return Err(refused("particle", "particle brush (physics emitter)")),
+        PainterEmitter::Stroke3D(_) => return Err(refused("3d-path", "3D path brush")),
+        PainterEmitter::Other(class) if class.is_empty() => {
+            return Err(refused("no-emitter", "brush without an emitter"));
+        }
+        PainterEmitter::Other(class) => return Err(Blocker::class(class, format!("brush emitter {class}"))),
     };
     let mut unknown = Vec::new();
     let placement = match brush.alignment {

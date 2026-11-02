@@ -4,14 +4,15 @@ use super::corruption::rewrite;
 use super::fixtures::full_document;
 use super::round_trip::{from_bytes, to_bytes};
 use crate::json;
-use crate::paint::LayerLock;
 use crate::paint::format::FormatError;
+use crate::paint::{LayerLock, LockReason};
 use crate::zip::ZipReader;
 use std::io::Cursor;
 
 fn document() -> crate::paint::Document {
     let mut doc = full_document();
-    let lock = LayerLock::new("Substance 3D Painter import", vec!["procedural \"Dirt\"".into(), "no replacement yet".into()]);
+    let reasons = vec![LockReason::new("substance:mg_dirt", "procedural \"Dirt\""), LockReason::new("", "no replacement yet")];
+    let lock = LayerLock::new("Substance 3D Painter import", reasons);
     doc.texture_sets[0].layers[0].lock = Some(lock);
     doc
 }
@@ -32,7 +33,9 @@ fn locks_round_trip_and_are_written_only_when_set() {
     let layers = v.get("texture_sets").unwrap().as_array().unwrap()[0].get("layers").unwrap().as_array().unwrap();
     let lock = layers[0].get("lock").unwrap();
     assert_eq!(lock.get("source").and_then(|s| s.as_str()), Some("Substance 3D Painter import"));
-    assert_eq!(lock.get("reasons").and_then(|r| r.as_array()).map(Vec::len), Some(2));
+    let reasons = lock.get("reasons").and_then(|r| r.as_array()).unwrap();
+    assert_eq!(reasons.len(), 2);
+    assert_eq!(reasons[0].get("key").and_then(|k| k.as_str()), Some("substance:mg_dirt"));
     assert!(layers[1..].iter().all(|l| l.get("lock").is_none()));
 }
 

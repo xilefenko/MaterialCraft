@@ -23,6 +23,7 @@ use super::replay::StrokeReplay;
 use super::set_surface::{SurfaceSource, project_image};
 use super::strokes;
 use crate::model::{EffectHeader, MaskInitial, PainterEffect, PainterMask, PainterSource};
+use crate::translate::blockers::{Blocker, BlockerKey, BlockerKind};
 use crate::translate::replacements::{self, ProceduralPlan};
 use materialcraft::json::Value;
 use materialcraft::paint::effect::{Grey, PolygonFill, Selection};
@@ -73,7 +74,10 @@ impl MaskEvaluator<'_> {
             // An initial value we cannot read: the layer gets no mask (a switched-off one does not matter).
             MaskInitial::Other(n) => {
                 let status = match painter.enabled {
-                    true => Computability::not_computable(format!("mask initial value {n}")),
+                    true => Computability::not_computable(Blocker::feature(
+                        "mask-initial-value",
+                        format!("mask initial value {n}"),
+                    )),
                     false => Computability::Exact,
                 };
                 return MaskOutcome { mask: None, status };
@@ -125,7 +129,7 @@ impl Walk<'_, '_> {
         }
     }
 
-    fn stop(&mut self, counts: bool, why: String) {
+    fn stop(&mut self, counts: bool, why: Blocker) {
         self.note(counts, Computability::not_computable(why));
     }
 
@@ -172,11 +176,23 @@ impl Walk<'_, '_> {
                     }
                     Some(Err(why)) => {
                         self.push(header, blend, self.empty_paint(record), on);
-                        self.stop(on, format!("painted mask (strokes not replayable: {why})"));
+                        self.stop(
+                            on,
+                            Blocker::new(
+                                why.key.clone(),
+                                format!("painted mask (strokes not replayable: {})", why.text),
+                            ),
+                        );
                     }
                     None => {
                         self.push(header, blend, self.empty_paint(record), on);
-                        self.stop(on, "painted mask (strokes)".into());
+                        self.stop(
+                            on,
+                            Blocker::new(
+                                BlockerKey::new(BlockerKind::Strokes, "painted-mask"),
+                                "painted mask (strokes)",
+                            ),
+                        );
                     }
                 }
             }
@@ -219,7 +235,7 @@ impl Walk<'_, '_> {
                             EffectKind::Paint(MaskPixels::new(grey_image(&image, size)))
                         }
                         Err(e) => {
-                            self.stop(counts, format!("mask {e}"));
+                            self.stop(counts, Blocker::feature("unreadable-bitmap", format!("mask {e}")));
                             let url = Value::object().with("url", b.url.as_str());
                             EffectKind::Unknown(data::unknown_named("substance:bitmap_fill", url))
                         }
@@ -247,7 +263,7 @@ impl Walk<'_, '_> {
                                 EffectKind::Generator(ours)
                             }
                             None => {
-                                self.stop(counts, format!("mask generator \"{name}\""));
+                                self.stop(counts, Blocker::substance(name, format!("mask generator \"{name}\"")));
                                 EffectKind::Generator(imported)
                             }
                         }
@@ -260,13 +276,15 @@ impl Walk<'_, '_> {
                                 self.note(counts, resolved.status());
                             }
                             false => {
-                                self.stop(counts, format!("mask reads an anchor: {}", status.reasons().join("; ")))
+                                for b in status.blockers() {
+                                    self.stop(counts, b.through("mask reads an anchor"));
+                                }
                             }
                         }
                         EffectKind::Reference(data::reference(r))
                     }
                     PainterSource::Other(raw) => {
-                        self.stop(counts, format!("mask source {}", raw.class));
+                        self.stop(counts, Blocker::class(&raw.class, format!("mask source {}", raw.class)));
                         EffectKind::Unknown(data::unknown(raw))
                     }
                 };
@@ -290,7 +308,7 @@ impl Walk<'_, '_> {
                         EffectKind::Filter(ours)
                     }
                     None => {
-                        self.stop(on, format!("mask filter \"{name}\""));
+                        self.stop(on, Blocker::substance(name, format!("mask filter \"{name}\"")));
                         EffectKind::Filter(imported)
                     }
                 };
@@ -339,7 +357,7 @@ impl Walk<'_, '_> {
                 }
             }
             PainterEffect::Other(raw) => {
-                self.stop(on, format!("mask effect {}", raw.class));
+                self.stop(on, Blocker::class(&raw.class, format!("mask effect {}", raw.class)));
                 self.push(None, blend, EffectKind::Unknown(data::unknown(raw)), on);
             }
         }

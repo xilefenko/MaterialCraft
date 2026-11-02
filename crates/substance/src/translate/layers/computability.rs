@@ -1,5 +1,8 @@
 //! [`Computability`]: how far one part of a stack (a layer's content for a channel, a mask, a blend mode,
-//! a whole channel) can be reproduced from the document alone, with the reasons when it cannot.
+//! a whole channel) can be reproduced from the document alone, with the reasons when it cannot. What makes a part
+//! not computable is always a typed [`Blocker`], so locks, reports and `mcsub blockers` can group by its key.
+
+use crate::translate::blockers::Blocker;
 
 /// At most this many distinct reasons are kept per part (the report stays readable).
 const MAX_REASONS: usize = 6;
@@ -14,8 +17,8 @@ pub enum Computability {
     Replaced(Vec<String>),
     /// Reproduced with a stand-in (a guessed blend mode, a resampled bitmap, …).
     Approximated(Vec<String>),
-    /// Needs something we cannot evaluate yet (procedurals, strokes, …).
-    NotComputable(Vec<String>),
+    /// Needs something we cannot evaluate yet (procedurals, strokes, …), by blocker.
+    NotComputable(Vec<Blocker>),
 }
 
 impl Computability {
@@ -23,8 +26,8 @@ impl Computability {
         Computability::Approximated(vec![reason.into()])
     }
 
-    pub fn not_computable(reason: impl Into<String>) -> Computability {
-        Computability::NotComputable(vec![reason.into()])
+    pub fn not_computable(blocker: Blocker) -> Computability {
+        Computability::NotComputable(vec![blocker])
     }
 
     pub fn replaced(reason: impl Into<String>) -> Computability {
@@ -45,10 +48,20 @@ impl Computability {
         !matches!(self, Computability::NotComputable(_))
     }
 
-    pub fn reasons(&self) -> &[String] {
+    /// The reasons as text (a not computable part's are its blockers' texts).
+    pub fn reasons(&self) -> Vec<String> {
         match self {
-            Computability::Exact => &[],
-            Computability::Replaced(r) | Computability::Approximated(r) | Computability::NotComputable(r) => r,
+            Computability::Exact => Vec::new(),
+            Computability::Replaced(r) | Computability::Approximated(r) => r.clone(),
+            Computability::NotComputable(b) => b.iter().map(|b| b.text.clone()).collect(),
+        }
+    }
+
+    /// What makes it not computable (empty when it is computable).
+    pub fn blockers(&self) -> &[Blocker] {
+        match self {
+            Computability::NotComputable(b) => b,
+            _ => &[],
         }
     }
 
@@ -71,14 +84,25 @@ impl Computability {
                 Computability::Exact => Computability::Exact,
             };
         }
-        if other.rank() == self.rank()
-            && let Computability::Replaced(r) | Computability::Approximated(r) | Computability::NotComputable(r) = self
-        {
-            for reason in other.reasons() {
-                if !r.contains(reason) && r.len() < MAX_REASONS {
-                    r.push(reason.clone());
+        if other.rank() != self.rank() {
+            return;
+        }
+        match self {
+            Computability::Replaced(r) | Computability::Approximated(r) => {
+                for reason in other.reasons() {
+                    if !r.contains(&reason) && r.len() < MAX_REASONS {
+                        r.push(reason);
+                    }
                 }
             }
+            Computability::NotComputable(b) => {
+                for blocker in other.blockers() {
+                    if !b.contains(blocker) && b.len() < MAX_REASONS {
+                        b.push(blocker.clone());
+                    }
+                }
+            }
+            Computability::Exact => {}
         }
     }
 }
@@ -92,11 +116,13 @@ mod tests {
         let mut c = Computability::Exact;
         c.and(&Computability::approximated("guess"));
         assert_eq!(c, Computability::approximated("guess"));
-        c.and(&Computability::not_computable("strokes"));
+        let strokes = Blocker::feature("strokes", "strokes");
+        c.and(&Computability::not_computable(strokes.clone()));
         c.and(&Computability::approximated("other guess"));
-        c.and(&Computability::not_computable("strokes"));
-        c.and(&Computability::not_computable("filter"));
+        c.and(&Computability::not_computable(strokes));
+        c.and(&Computability::not_computable(Blocker::substance("blur", "filter")));
         assert_eq!(c.reasons(), ["strokes", "filter"]);
+        assert_eq!(c.blockers()[1].key.to_string(), "substance:blur");
         assert!(!c.is_computable());
         let mut e = Computability::Exact;
         e.and(&Computability::Exact);

@@ -189,7 +189,7 @@ fn absorb_keeps_the_oldest_state() {
 }
 
 fn locked(d: &mut Document, id: &str) {
-    let lock = crate::paint::LayerLock::new("test import", vec!["procedural".into()]);
+    let lock = crate::paint::LayerLock::new("test import", vec![crate::paint::LockReason::new("", "procedural")]);
     round_trip(d, Edit::SetLayer { layer: lr(id), property: LayerProperty::Lock(Some(lock)) });
 }
 

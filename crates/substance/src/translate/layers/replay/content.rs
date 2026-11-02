@@ -3,7 +3,9 @@
 //! coverage on every channel it works on. Brushes painting a material or an image are not replayable.
 
 use super::super::channels::SetChannels;
+use super::refused;
 use crate::model::{PaintEffect, PaintTool, PainterSource};
+use crate::translate::blockers::Blocker;
 use materialcraft::paint::{Channel, ColorSpace, TiledImage};
 use materialcraft::stamp::{ChannelTarget, StampMode};
 
@@ -34,7 +36,7 @@ impl ContentPlan {
 }
 
 /// The plan of `effect` over the declared `channels`.
-pub fn values(effect: &PaintEffect, channels: &SetChannels) -> Result<ContentPlan, String> {
+pub fn values(effect: &PaintEffect, channels: &SetChannels) -> Result<ContentPlan, Blocker> {
     let srgb = |c: Channel| channels.spec(c).is_some_and(|s| s.color_space == ColorSpace::Srgb);
     let worked = channels.all().filter(|c| channels.mask_has(effect.header.channels, *c));
     match effect.tool {
@@ -53,7 +55,12 @@ pub fn values(effect: &PaintEffect, channels: &SetChannels) -> Result<ContentPla
                         v[3] = u.opacity.clamp(0.0, 1.0);
                         values.push((c, v, srgb(c)));
                     }
-                    Some(other) => return Err(format!("brush paints a {} source", other.kind())),
+                    Some(other) => {
+                        return Err(refused(
+                            &format!("paints-{}", other.kind()),
+                            format!("brush paints a {} source", other.kind()),
+                        ));
+                    }
                 }
             }
             Ok(ContentPlan {

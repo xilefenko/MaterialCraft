@@ -78,7 +78,7 @@ pub use geometry_mask::{GeometryMask, Inclusion};
 pub use image::{ImageError, Rect, TILE_SIZE, Tile, TiledImage};
 pub use instance::InstanceLink;
 pub use layer::{ChannelBlend, Fill, FillSource, Layer, LayerImage, LayerKind, PaintContent};
-pub use lock::LayerLock;
+pub use lock::{LayerLock, LockReason};
 pub use mask::Mask;
 pub use output::{MaterialMaps, OutputOptions};
 pub use pixel::{PixelFormat, PixelLayout, SampleType};

@@ -12,6 +12,7 @@
 
 pub mod bake_settings;
 mod baked_maps;
+pub mod blockers;
 pub(crate) mod cache_channels;
 #[cfg(test)]
 mod camera_tests;

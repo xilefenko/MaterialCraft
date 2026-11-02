@@ -4,7 +4,9 @@
 //! Substance alphas (`.sbsar` stamps) are not computable.
 
 use super::super::images::{ImageSource, grey_values};
+use super::{failed, refused};
 use crate::model::{PainterSource, Tweak, TweakValue};
+use crate::translate::blockers::{Blocker, BlockerKey, BlockerKind};
 use materialcraft::paint::TiledImage;
 use materialcraft_brush::TipAlpha;
 
@@ -20,35 +22,53 @@ pub enum TipKind {
 }
 
 /// The tip of `alpha` (the effect's `sourceTransparent` list; the first entry is the alpha), or why not.
-pub fn tip(alpha: &[PainterSource], images: &dyn ImageSource) -> Result<(TipAlpha, TipKind), String> {
+pub fn tip(alpha: &[PainterSource], images: &dyn ImageSource) -> Result<(TipAlpha, TipKind), Blocker> {
     let Some(source) = alpha.first() else {
         let shape = ShapeTip::default();
-        return Ok((shape_tip(&shape).ok_or("tip could not be drawn")?, TipKind::Shape));
+        return Ok((
+            shape_tip(&shape).ok_or_else(|| failed("tip could not be drawn"))?,
+            TipKind::Shape,
+        ));
     };
     match source {
         PainterSource::Procedural(p) => {
-            let procedural = p.procedural.as_ref().ok_or("brush alpha without a procedural")?;
+            let procedural = p
+                .procedural
+                .as_ref()
+                .ok_or_else(|| refused("alpha-without-procedural", "brush alpha without a procedural"))?;
             match procedural.name() {
                 "shape" => {
                     let shape = ShapeTip::from_tweaks(&procedural.tweaks)?;
-                    Ok((shape_tip(&shape).ok_or("tip could not be drawn")?, TipKind::Shape))
+                    Ok((
+                        shape_tip(&shape).ok_or_else(|| failed("tip could not be drawn"))?,
+                        TipKind::Shape,
+                    ))
                 }
-                other => Err(format!("brush alpha \"{other}\"")),
+                other => Err(Blocker::new(
+                    BlockerKey::new(BlockerKind::BrushAlpha, other),
+                    format!("brush alpha \"{other}\""),
+                )),
             }
         }
         PainterSource::Bitmap(b) => {
-            let loaded = images.load(&b.url).map_err(|e| format!("brush alpha {e}"))?;
+            let loaded = images
+                .load(&b.url)
+                .map_err(|e| refused("alpha-bitmap-unreadable", format!("brush alpha {e}")))?;
             Ok((
-                bitmap_tip(&loaded.image).ok_or("brush alpha bitmap is empty")?,
+                bitmap_tip(&loaded.image)
+                    .ok_or_else(|| refused("alpha-bitmap-empty", "brush alpha bitmap is empty"))?,
                 TipKind::Bitmap,
             ))
         }
         PainterSource::Uniform(u) => {
             let v = (u.color[0] * u.opacity).clamp(0.0, 1.0);
-            let tip = TipAlpha::new(8, 8, vec![v; 64]).ok_or("tip could not be drawn")?;
+            let tip = TipAlpha::new(8, 8, vec![v; 64]).ok_or_else(|| failed("tip could not be drawn"))?;
             Ok((tip, TipKind::Uniform))
         }
-        other => Err(format!("brush alpha source {}", other.kind())),
+        other => Err(refused(
+            &format!("alpha-source-{}", other.kind()),
+            format!("brush alpha source {}", other.kind()),
+        )),
     }
 }
 
@@ -75,7 +95,7 @@ impl Default for ShapeTip {
 
 impl ShapeTip {
     /// The parameters from the `.sbsar` tweaks; an unknown parameter that is not at its default is an error.
-    pub fn from_tweaks(tweaks: &[Tweak]) -> Result<ShapeTip, String> {
+    pub fn from_tweaks(tweaks: &[Tweak]) -> Result<ShapeTip, Blocker> {
         let mut out = ShapeTip::default();
         for t in tweaks {
             match (t.identifier.as_str(), &t.value) {
@@ -85,12 +105,20 @@ impl ShapeTip {
                 }
                 ("shape", TweakValue::Int(n)) => out.shape = Some(*n),
                 (id, _) if id.starts_with('$') => {}
-                (id, v) => return Err(format!("shape tip parameter {id} = {v:?}")),
+                (id, v) => {
+                    return Err(refused(
+                        &format!("shape-tip-parameter-{id}"),
+                        format!("shape tip parameter {id} = {v:?}"),
+                    ));
+                }
             }
         }
         match out.shape {
             None => Ok(out),
-            Some(n) => Err(format!("shape tip variant {n}")),
+            Some(n) => Err(refused(
+                &format!("shape-tip-variant-{n}"),
+                format!("shape tip variant {n}"),
+            )),
         }
     }
 }
