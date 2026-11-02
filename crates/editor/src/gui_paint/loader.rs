@@ -5,6 +5,7 @@ use super::job::{CancelToken, Job};
 use super::spp_import::SppImport;
 use materialcraft::paint::new_project::{self, NewProject};
 use materialcraft::paint::{self, Document};
+use materialcraft_substance::translate::layers::replay::ReplayChoice;
 use materialcraft_substance::translate::replacements::ProceduralPlan;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
@@ -34,15 +35,15 @@ pub struct Loader {
 
 impl Loader {
     pub fn start(source: PathBuf) -> Loader {
-        Loader::start_with(source, ProceduralPlan::default(), Vec::new())
+        Loader::start_with(source, ProceduralPlan::default(), Vec::new(), ReplayChoice::default())
     }
 
-    /// Like [`Loader::start`], importing a `.spp` with the procedural replacements of `plan`; the materials it
-    /// picks are embedded from the asset library `folders`.
-    pub fn start_with(source: PathBuf, plan: ProceduralPlan, library: Vec<PathBuf>) -> Loader {
+    /// Like [`Loader::start`], importing a `.spp` with the procedural replacements of `plan` and the `replay`
+    /// choice for brush strokes; the materials it picks are embedded from the asset library `folders`.
+    pub fn start_with(source: PathBuf, plan: ProceduralPlan, library: Vec<PathBuf>, replay: ReplayChoice) -> Loader {
         let path = source.clone();
         let job = Job::spawn(move |cancel, tx| {
-            let result = load(&path, &plan, &library, cancel, tx);
+            let result = load(&path, &plan, &library, replay, cancel, tx);
             let _ = tx.send(Event::Done(result));
         });
         Loader { job, source, progress: (0.0, "Opening".into()) }
@@ -88,7 +89,7 @@ impl Loader {
     }
 }
 
-fn load(path: &Path, plan: &ProceduralPlan, library: &[PathBuf], cancel: &CancelToken, tx: &Sender<Event>) -> Result<Loaded, String> {
+fn load(path: &Path, plan: &ProceduralPlan, library: &[PathBuf], replay: ReplayChoice, cancel: &CancelToken, tx: &Sender<Event>) -> Result<Loaded, String> {
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_ascii_lowercase();
     match ext.as_str() {
         "mcpaint" => {
@@ -99,7 +100,7 @@ fn load(path: &Path, plan: &ProceduralPlan, library: &[PathBuf], cancel: &Cancel
             let mut progress = |f: f32, m: &str| {
                 let _ = tx.send(Event::Progress(f, m.to_string()));
             };
-            let imported = SppImport::new().with_plan(plan.clone()).with_library(library.to_vec()).open(path, cancel, &mut progress)?;
+            let imported = SppImport::new().with_plan(plan.clone()).with_library(library.to_vec()).with_replay(replay).open(path, cancel, &mut progress)?;
             Ok(Loaded { document: imported.document, source: path.to_path_buf(), summary: Some(imported.summary), notes: Vec::new() })
         }
         _ => Err(format!("{} is neither a .mcpaint document nor a .spp project.", path.display())),

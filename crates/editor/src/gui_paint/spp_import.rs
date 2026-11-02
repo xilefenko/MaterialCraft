@@ -9,8 +9,9 @@ use super::job::CancelToken;
 use materialcraft::material_fill::{FolderResolver, MaterialResolver};
 use materialcraft::paint::Document;
 use materialcraft::paint::format::save_path;
+use materialcraft_substance::translate::layers::replay::ReplayChoice;
 use materialcraft_substance::translate::replacements::ProceduralPlan;
-use materialcraft_substance::translate::{Cancel, ImportError, import_spp_planned, import_spp_with};
+use materialcraft_substance::translate::{Cancel, ImportError, Importer};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
@@ -36,6 +37,8 @@ pub struct SppImport {
     plan: ProceduralPlan,
     /// Asset library folders the materials the plan picks are embedded from.
     library: Vec<PathBuf>,
+    /// Whether painted masks and paint layers are replayed (part of the cache key).
+    replay: ReplayChoice,
 }
 
 impl SppImport {
@@ -45,12 +48,24 @@ impl SppImport {
 
     /// An importer caching its conversions in `cache_dir`.
     pub fn with_cache(cache_dir: PathBuf) -> SppImport {
-        SppImport { build: std::env::current_exe().unwrap_or_default(), cache_dir, plan: ProceduralPlan::default(), library: Vec::new() }
+        SppImport {
+            build: std::env::current_exe().unwrap_or_default(),
+            cache_dir,
+            plan: ProceduralPlan::default(),
+            library: Vec::new(),
+            replay: ReplayChoice::default(),
+        }
     }
 
     /// Builder: import with the procedural replacements of `plan`.
     pub fn with_plan(mut self, plan: ProceduralPlan) -> SppImport {
         self.plan = plan;
+        self
+    }
+
+    /// Builder: replay brush strokes (or not).
+    pub fn with_replay(mut self, replay: ReplayChoice) -> SppImport {
+        self.replay = replay;
         self
     }
 
@@ -63,7 +78,7 @@ impl SppImport {
     /// Opens the cached conversion of `spp`, or imports it and caches the result. Fails with [`CANCELLED`]
     /// soon after `cancel` is set.
     pub fn open(&self, spp: &Path, cancel: &CancelToken, progress: &mut dyn FnMut(f32, &str)) -> Result<Imported, String> {
-        let cached = with_plan_key(cache::converted_path(&self.cache_dir, spp, &self.build), &self.plan);
+        let cached = with_replay_key(with_plan_key(cache::converted_path(&self.cache_dir, spp, &self.build), &self.plan), self.replay);
         if cached.is_file() {
             progress(IMPORT_SHARE, "Reading the cached conversion");
             let document = materialcraft::paint::format::load_path(&cached).map_err(|e| format!("Cannot read {}: {e}", cached.display()))?;
@@ -72,13 +87,7 @@ impl SppImport {
         let start = Instant::now();
         let asked = || cancel.is_cancelled();
         let mut on = |f: f32, m: &str| progress(f * IMPORT_SHARE, m);
-        let imported = match self.plan.materials.is_empty() {
-            true => import_spp_with(spp, &self.plan, &mut on, Cancel::new(&asked)),
-            false => {
-                let library: Arc<dyn MaterialResolver> = Arc::new(FolderResolver::new(self.library.iter().cloned()));
-                import_spp_planned(spp, &self.plan, library, &mut on, Cancel::new(&asked))
-            }
-        };
+        let imported = self.import(spp, &mut on, Cancel::new(&asked));
         let document = match imported {
             Ok(d) => d,
             Err(ImportError::Cancelled) => return Err(CANCELLED.into()),
@@ -92,6 +101,29 @@ impl SppImport {
         let summary = summary(&document, imported, stored.err());
         Ok(Imported { document, summary })
     }
+}
+
+impl SppImport {
+    /// Runs the importer with the plan, the replay choice and (when the plan picks materials) the library.
+    fn import(&self, spp: &Path, progress: &mut dyn FnMut(f32, &str), cancel: Cancel<'_>) -> Result<Document, ImportError> {
+        cancel.check()?;
+        let mut importer = Importer::open(spp)?.with_plan(self.plan.clone()).with_replay(self.replay);
+        if !self.plan.materials.is_empty() {
+            let library: Arc<dyn MaterialResolver> = Arc::new(FolderResolver::new(self.library.iter().cloned()));
+            importer = importer.with_library(library);
+        }
+        importer.run(progress, cancel)
+    }
+}
+
+/// The cache file of a conversion with replayed strokes: `-replay` added to the name (without replay the name stays,
+/// so earlier conversions stay valid).
+fn with_replay_key(path: PathBuf, replay: ReplayChoice) -> PathBuf {
+    if replay != ReplayChoice::Replay {
+        return path;
+    }
+    let stem = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+    path.with_file_name(format!("{stem}-replay.mcpaint"))
 }
 
 /// The cache file of a conversion with replacements: the plan's choices hashed into the name (the default
@@ -131,6 +163,13 @@ mod tests {
 
     fn cache_files(dir: &Path) -> usize {
         std::fs::read_dir(dir).map_or(0, |d| d.count())
+    }
+
+    #[test]
+    fn replayed_conversions_are_cached_apart() {
+        let plain = PathBuf::from("/cache/abc.mcpaint");
+        assert_eq!(with_replay_key(plain.clone(), ReplayChoice::Keep), plain);
+        assert_eq!(with_replay_key(plain, ReplayChoice::Replay), PathBuf::from("/cache/abc-replay.mcpaint"));
     }
 
     #[test]
