@@ -41,6 +41,13 @@ impl ReviewDialog {
         ReviewDialog { analysis, choices, materials: MaterialChoices::new(materials, tray), library: LibraryChoices::new(Arc::new(library), writable) }
     }
 
+    /// Starts every choice at what `plan` picks (a re-import repeats the choices of the earlier import).
+    pub fn prefilled(mut self, plan: &ProceduralPlan) -> ReviewDialog {
+        self.choices.iter_mut().for_each(|(name, c)| *c = plan.choice(name));
+        self.materials.prefill(plan);
+        self
+    }
+
     /// The candidates the library section offers.
     pub fn library_candidates(&self) -> &Arc<LibraryCandidates> {
         self.library.candidates()
@@ -196,5 +203,15 @@ mod tests {
         d.materials.use_best();
         assert_eq!(d.plan().material("rust_fine"), Some("materials/iron-rusted.mca"));
         assert_eq!(d.plan().choice("mg_dirt"), Choice::Keep, "procedural choices stay apart");
+    }
+
+    #[test]
+    fn a_plan_prefills_the_choices() {
+        let rust = ProceduralUse { role: Role::Fill, material: true, ..use_of("rust_fine") };
+        let iron = TrayMaterial { reference: "materials/iron-rusted.mca".into(), name: "Rusted iron".into(), tags: vec!["rust".into()], look: None };
+        let earlier = ProceduralPlan::all(Choice::Replace).with_material("rust_fine", Some("materials/iron-rusted.mca"));
+        let d = ReviewDialog::new(findings(vec![use_of("mg_dirt"), rust], vec![iron]), true).prefilled(&earlier);
+        assert_eq!(d.choices, vec![("mg_dirt".to_string(), Choice::Replace)]);
+        assert_eq!(d.plan().material("rust_fine"), Some("materials/iron-rusted.mca"));
     }
 }

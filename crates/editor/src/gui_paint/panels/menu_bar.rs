@@ -1,6 +1,7 @@
 //! The Paint screen's menu bar. Entries show their current shortcut from the table.
 
 use super::super::channel_view::ChannelView;
+use super::super::reimport;
 use super::super::shell::Shell;
 use super::super::shell::actions;
 use super::super::shell::panels::PaintPanel;
@@ -8,9 +9,19 @@ use super::PanelEvent;
 use crate::gui_workspace::PanelKind;
 use eframe::egui::{self, Color32, Id, Ui};
 use materialcraft::history::PaintHistory;
+use materialcraft::paint::ImportOrigin;
 
-/// Draws the menu bar; `has_document` enables the document entries, `history` is the open document's.
-pub fn show(ui: &mut Ui, title: &str, has_document: bool, history: Option<&PaintHistory>, shell: &Shell, events: &mut Vec<PanelEvent>) {
+/// Draws the menu bar; `has_document` enables the document entries, `origin` (the open document's import origin)
+/// Re-import from source, `history` is the open document's.
+pub fn show(
+    ui: &mut Ui,
+    title: &str,
+    has_document: bool,
+    origin: Option<&ImportOrigin>,
+    history: Option<&PaintHistory>,
+    shell: &Shell,
+    events: &mut Vec<PanelEvent>,
+) {
     let frame = egui::Frame::NONE.fill(Color32::from_rgb(34, 34, 34)).inner_margin(egui::Margin::symmetric(6, 2));
     egui::Panel::top("paint_menu").frame(frame).show(ui, |ui| {
         egui::MenuBar::new().ui(ui, |ui| {
@@ -18,6 +29,7 @@ pub fn show(ui: &mut Ui, title: &str, has_document: bool, history: Option<&Paint
                 item(ui, shell, events, "New project...", "paint.new", true, PanelEvent::NewProject);
                 item(ui, shell, events, "Open in Paint mode...", "paint.open", true, PanelEvent::Open);
                 item(ui, shell, events, "Import Substance Painter project...", "paint.import", true, PanelEvent::Import);
+                reimport_item(ui, origin, events);
                 ui.separator();
                 item(ui, shell, events, "Save", "paint.save", has_document, PanelEvent::Save);
                 item(ui, shell, events, "Save as...", "paint.save_as", has_document, PanelEvent::SaveAs);
@@ -66,6 +78,20 @@ pub fn show(ui: &mut Ui, title: &str, has_document: bool, history: Option<&Paint
 fn item(ui: &mut Ui, shell: &Shell, events: &mut Vec<PanelEvent>, label: &str, action: &str, enabled: bool, ev: PanelEvent) {
     if ui.add_enabled(enabled, egui::Button::new(label).shortcut_text(shell.shortcuts.label(action))).clicked() {
         events.push(ev);
+        ui.close();
+    }
+}
+
+/// File > Re-import from source: enabled for a document imported from a `.spp`, otherwise says why not.
+fn reimport_item(ui: &mut Ui, origin: Option<&ImportOrigin>, events: &mut Vec<PanelEvent>) {
+    let available = reimport::availability(origin);
+    let response = ui.add_enabled(available.is_ok(), egui::Button::new("Re-import from source..."));
+    let response = match available {
+        Ok(()) => response.on_hover_text("Import the Substance Painter project again with the same choices, as a new document"),
+        Err(why) => response.on_disabled_hover_text(why),
+    };
+    if response.clicked() {
+        events.push(PanelEvent::Reimport);
         ui.close();
     }
 }

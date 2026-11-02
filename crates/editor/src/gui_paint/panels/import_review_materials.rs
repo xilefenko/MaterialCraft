@@ -26,6 +26,13 @@ impl MaterialChoices {
         MaterialChoices { matches, tray, choices }
     }
 
+    /// Starts each material at what `plan` picks for it (a re-import repeats the earlier choices).
+    pub fn prefill(&mut self, plan: &ProceduralPlan) {
+        for (m, c) in self.matches.materials.iter().zip(self.choices.iter_mut()) {
+            *c = plan.material(&m.name).map(str::to_string);
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.matches.materials.is_empty()
     }

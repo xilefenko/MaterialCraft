@@ -69,7 +69,9 @@ impl PaintMode {
             ReviewOutcome::Pending => {}
             ReviewOutcome::Cancelled => {
                 self.diag.info(Area::Import, format!("Import of {} cancelled.", review.source().display()));
+                let source = review.source().to_path_buf();
                 self.review = None;
+                self.forget_reimport(&source);
             }
             ReviewOutcome::Import(plan, to_library) => {
                 let path = review.source().to_path_buf();
@@ -89,10 +91,18 @@ impl PaintMode {
         let Some(result) = self.loader.as_mut().and_then(|l| l.poll()) else {
             return;
         };
-        let source = self.loader.take().map(|l| l.source().display().to_string()).unwrap_or_default();
+        let path = self.loader.take().map(|l| l.source().to_path_buf()).unwrap_or_default();
+        let source = path.display().to_string();
         match result {
-            Ok(loaded) => self.show(loaded),
+            Ok(loaded) => {
+                let reimported = self.reimport_outcome(&loaded.source, &loaded.document);
+                self.show(loaded);
+                if let Some(line) = reimported {
+                    self.diag.info(Area::Import, line);
+                }
+            }
             Err(e) => {
+                self.forget_reimport(&path);
                 self.diag.error(area_of_load(&source), format!("{source}: {e}"));
                 if let Some(shot) = &self.shot {
                     shot.abort(&format!("{source}: {e}"));

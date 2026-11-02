@@ -50,12 +50,18 @@ pub struct LockDiff {
 impl LockDiff {
     /// The diff from document `before` to `after`.
     pub fn of(before: &Document, after: &Document) -> LockDiff {
+        LockDiff::since(&BlockerSummary::of(before), after)
+    }
+
+    /// The diff from the locks `before` (kept from a document that is gone, e.g. replaced by its re-import) to
+    /// document `after`.
+    pub fn since(before: &BlockerSummary, after: &Document) -> LockDiff {
         let present: BTreeSet<(String, String)> = after
             .texture_sets
             .iter()
             .flat_map(|s| s.walk_layers().map(move |(_, l)| (s.id.clone(), l.id.clone())))
             .collect();
-        LockDiff::between(&BlockerSummary::of(before), &BlockerSummary::of(after), |set, layer| {
+        LockDiff::between(before, &BlockerSummary::of(after), |set, layer| {
             present.contains(&(set.to_string(), layer.to_string()))
         })
     }

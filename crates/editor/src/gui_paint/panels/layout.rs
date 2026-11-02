@@ -59,7 +59,8 @@ pub fn show(ui: &mut egui::Ui, s: Screen) -> Vec<PanelEvent> {
     let title = s.document.map(|d| d.title()).unwrap_or_default();
     let has_document = s.document.is_some();
     let paintable = s.document.is_some_and(|d| s.layers.paintable(d.doc()));
-    menu_bar::show(ui, &title, has_document, s.document.map(|d| d.history()), s.shell, &mut events);
+    let origin = s.document.and_then(|d| d.doc().import_origin.as_ref());
+    menu_bar::show(ui, &title, has_document, origin, s.document.map(|d| d.history()), s.shell, &mut events);
     status_bar::show(ui, s.history.last().map(|(_, e)| e), &s.activity, &mut events);
     let strip_frame = egui::Frame::NONE.fill(gui_theme::STRIP_BG);
     for strip in [Strip::Tools, Strip::Panels] {

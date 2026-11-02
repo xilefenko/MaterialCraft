@@ -50,6 +50,7 @@ mod projection_edit;
 mod projection_screen;
 mod quick_mask_tint;
 mod quick_tools;
+mod reimport;
 mod reveal;
 mod save_point;
 mod saving;
@@ -175,6 +176,8 @@ pub struct PaintMode {
     new_projects: new_project::NewProjects,
     /// Writing the project assets the import review ticked into the user's library (step 46).
     library_imports: library_import::LibraryImports,
+    /// File > Re-import from source: its question and the locks it compares with.
+    reimports: reimport::Reimports,
     /// Editing the selected fill's projection: the view gizmo and the panel's gestures (step 38).
     projection: projection_edit::ProjectionEditing,
     /// The shader settings panel's gesture and where its shader files come from (step 41).
@@ -227,6 +230,7 @@ impl PaintMode {
             brush_presets: brush_presets::BrushPresets::default(),
             new_projects: new_project::NewProjects::default(),
             library_imports: library_import::LibraryImports::default(),
+            reimports: reimport::Reimports::default(),
             tablet: input::tablet::TabletInput::none(),
             projection: projection_edit::ProjectionEditing::default(),
             shader_panel: shading_screen::ShaderPanelState::default(),
@@ -311,6 +315,7 @@ impl PaintMode {
         self.poll_smart_assets(ctx);
         self.poll_brush_presets(ctx);
         self.poll_new_project(ctx);
+        self.poll_reimport(ctx);
         self.poll_unsaved(ctx);
         let name = self.document.as_ref().map(|d| d.title());
         self.title.update(ctx, name.as_deref());
@@ -393,6 +398,7 @@ impl PaintMode {
             PanelEvent::SaveTemplate => self.save_template(),
             PanelEvent::Open => self.guard(unsaved::Then::Open(Pick::Any)),
             PanelEvent::Import => self.guard(unsaved::Then::Open(Pick::Substance)),
+            PanelEvent::Reimport => self.ask_reimport(),
             PanelEvent::Close => self.guard(unsaved::Then::Close),
             PanelEvent::Save => self.save(None),
             PanelEvent::SaveAs => self.save_as(None),
