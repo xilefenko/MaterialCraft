@@ -12,8 +12,10 @@ pub fn repair_frames(part: &mut MeshPart) -> usize {
     let mut repaired = 0;
     if bad.iter().any(|&b| b) {
         let face_normals = accumulated_face_normals(part, &bad);
-        for (i, n) in part.normals.iter_mut().enumerate().filter(|(i, _)| bad[*i]) {
-            let sum = face_normals[i];
+        // A vertex with a normal but no position has no faces: it gets the zero sum, so +Z.
+        let sums = face_normals.into_iter().chain(std::iter::repeat([0.0; 3]));
+        let wanted = part.normals.iter_mut().zip(&bad).zip(sums);
+        for ((n, _), sum) in wanted.filter(|((_, bad), _)| **bad) {
             *n = if dot(sum, sum) > 0.0 {
                 normalize(sum)
             } else {

@@ -38,8 +38,16 @@ impl AssbinGeometry {
             .collect::<Result<Vec<_>, _>>()?;
         let instances = placements(mesh_instances(blocks.root_node)?, meshes.len())?;
         let mut uses = vec![0usize; meshes.len()];
-        instances.iter().for_each(|i| uses[i.mesh as usize] += 1);
-        let placed: usize = instances.iter().map(|i| meshes[i.mesh as usize].vertex_count()).sum();
+        for instance in &instances {
+            *uses
+                .get_mut(instance.mesh as usize)
+                .ok_or_else(|| missing_mesh(instance))? += 1;
+        }
+        let placed_meshes = instances
+            .iter()
+            .map(|instance| meshes.get(instance.mesh as usize).ok_or_else(|| missing_mesh(instance)))
+            .collect::<Result<Vec<_>, _>>()?;
+        let placed: usize = placed_meshes.iter().map(|mesh| mesh.vertex_count()).sum();
         if placed > MAX_PLACED_VERTICES {
             return Err(DecodeError::invalid(
                 RECORD,
@@ -47,15 +55,14 @@ impl AssbinGeometry {
             ));
         }
         let mut parts = Vec::with_capacity(instances.len());
-        for instance in &instances {
-            let mesh = &meshes[instance.mesh as usize];
+        for (instance, mesh) in instances.iter().zip(placed_meshes) {
             if mesh.material_index as usize >= materials.len() {
                 return Err(DecodeError::invalid(
                     RECORD,
                     format!("mesh '{}' uses missing material {}", mesh.name, mesh.material_index),
                 ));
             }
-            let name = match uses[instance.mesh as usize] > 1 {
+            let name = match uses.get(instance.mesh as usize).is_some_and(|&n| n > 1) {
                 true => format!("{} [{}]", mesh.name, instance.node),
                 false => mesh.name.clone(),
             };
@@ -69,14 +76,12 @@ impl AssbinGeometry {
 
 /// Checks the node tree's mesh indices and adds an identity placement for every unplaced mesh.
 fn placements(mut instances: Vec<MeshInstance>, mesh_count: usize) -> Result<Vec<MeshInstance>, DecodeError> {
-    if let Some(bad) = instances.iter().find(|i| i.mesh as usize >= mesh_count) {
-        return Err(DecodeError::invalid(
-            RECORD,
-            format!("node '{}' places missing mesh {}", bad.node, bad.mesh),
-        ));
-    }
     let mut placed = vec![false; mesh_count];
-    instances.iter().for_each(|i| placed[i.mesh as usize] = true);
+    for instance in &instances {
+        *placed
+            .get_mut(instance.mesh as usize)
+            .ok_or_else(|| missing_mesh(instance))? = true;
+    }
     for (mesh, _) in placed.iter().enumerate().filter(|(_, p)| !**p) {
         instances.push(MeshInstance {
             mesh: mesh as u32,
@@ -85,4 +90,11 @@ fn placements(mut instances: Vec<MeshInstance>, mesh_count: usize) -> Result<Vec
         });
     }
     Ok(instances)
+}
+
+fn missing_mesh(instance: &MeshInstance) -> DecodeError {
+    DecodeError::invalid(
+        RECORD,
+        format!("node '{}' places missing mesh {}", instance.node, instance.mesh),
+    )
 }
