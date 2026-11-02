@@ -96,7 +96,8 @@ fn markdown(census: &Census, options: RenderOptions, out: &mut String) -> fmt::R
         out,
         "\n## Blockers, by layers they lock alone ({shown} of {})\n\n\
          \"Alone\": locked layers it is the only blocker of, unlocked once it is supported. \"Visible\": of its \
-         locked layers, the visible ones.\n",
+         locked layers, the visible ones in the imported document; the import hides a layer whose mask it \
+         can't compute, so blockers of masks show few.\n",
         ranked.len()
     )?;
     writeln!(
@@ -169,7 +170,7 @@ fn totals_markdown(census: &Census, t: &Totals, out: &mut String) -> fmt::Result
             "Locked layers",
             format!("{} ({} of the layers)", t.locked, percent(t.locked, t.layers)),
         ),
-        ("Visible locked layers", t.visible_locked.to_string()),
+        ("Visible locked layers (as imported)", t.visible_locked.to_string()),
         ("Unlocked by choosing \"replace\"", t.by_replace.to_string()),
         ("Unlocked by replaying strokes", t.by_replay.to_string()),
         ("Unlocked by both choices", t.by_both.to_string()),

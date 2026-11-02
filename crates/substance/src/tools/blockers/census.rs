@@ -22,7 +22,8 @@ pub struct KeyTotal {
     pub layers: usize,
     /// Locked layers it is the only blocker of: supporting it unlocks them.
     pub alone: usize,
-    /// Of `layers`, the visible ones.
+    /// Of `layers`, the visible ones in the imported document. The import hides layers whose mask it can't
+    /// compute (the correction shows Painter's result there), so this is not Painter's visibility.
     pub visible: usize,
     /// The first text it was met with.
     pub example: String,
