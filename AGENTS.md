@@ -21,7 +21,8 @@ crates/editor             materialcraft-editor: the editor binary `materialcraft
   src/main.rs             node editor; include!s gui_params/gui_ui/gui_home.rs
   src/gui_paint/          Paint mode screen
   src/gui_theme.rs        the editor theme
-crates/substance          materialcraft-substance: reads .spp projects; `mcsub` (inspect, convert, maps, compare)
+crates/spp-reader         spp-reader: reads .spp projects (container, records, Painter's layer model, blocker keys); no app dependency
+crates/substance          materialcraft-substance: imports .spp into paint documents (translate, catalog); `mcsub`
 crates/parity             materialcraft-parity: `mcparity`, measures our results against Painter's on local projects
 crates/starter            materialcraft-starter: `mcstarter`, builds the starter asset library (content/materials/*.mcg)
 ```
@@ -49,7 +50,8 @@ Toolchain: Rust 1.95 or newer, edition 2024. Formatting follows `rustfmt.toml` (
 2. **Module boundaries.**
    - The paint model (`src/paint`) knows no concrete procedural; procedurals plug in behind its interfaces.
    - Mapping tables from Painter's concepts to ours live only in the importer's translate stage
-     (`crates/substance/src/translate`); the layers below it know nothing about MaterialCraft's model.
+     (`crates/substance/src/translate`); the reader below it (`crates/spp-reader`) knows nothing about
+     MaterialCraft and must not depend on any MaterialCraft crate.
    - The editor is thin: it shows state and turns input into calls on the model; logic lives in the libraries.
 3. **Object-oriented and decoupled.** Small types with one job each, wired together explicitly. No god objects or god
    files: split a file before it grows into one.
