@@ -11,6 +11,7 @@
 //! - [`view`]: the camera list, exposure and environment the document was last looked at with.
 //! - [`shading`]: shader instances, the texture sets' instances and the mesh's length unit.
 //! - [`project`]: the settings chosen when the project was made (normal map format, tangent frame, fill sizing).
+//! - [`import_origin`]: the source file and options of an import, to import it again (since 0.18).
 
 pub mod bake_config;
 pub mod bake_enums;
@@ -24,6 +25,7 @@ pub mod extras;
 pub mod fields;
 pub mod geometry_mask;
 pub mod image_ref;
+pub mod import_origin;
 pub mod layer;
 pub mod mesh_faces;
 pub mod project;
@@ -122,6 +124,7 @@ pub fn write(doc: &Document, ctx: &WriteCtx, thumbnail: bool) -> Value {
     }
     shading::write(&doc.shading, &mut v, ctx.extras);
     project::write(&doc.project, &mut v, ctx.extras);
+    import_origin::write(doc.import_origin.as_ref(), &mut v, ctx.extras);
     if doc.import_report.is_some() {
         v.insert("import_report", paths::IMPORT_REPORT);
     }
@@ -158,6 +161,7 @@ pub fn read(root: &Value) -> Result<Manifest, FormatError> {
     doc.view = view::read(&mut o, &mut ctx);
     doc.shading = shading::read(&mut o, &mut ctx)?;
     doc.project = project::read(&mut o, &mut ctx)?;
+    doc.import_origin = import_origin::read(&mut o, &mut ctx)?;
     let manifest = Manifest {
         version,
         mesh: o.str("mesh")?.to_string(),

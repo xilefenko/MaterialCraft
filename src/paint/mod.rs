@@ -5,7 +5,7 @@
 //! - [`image`]: [`TiledImage`], lazily allocated tiles with dirty tracking.
 //! - [`channel`]: material channels, colour spaces, [`ChannelSpec`].
 //! - [`blend`] and [`normal`]: blend modes and normal-vector maths.
-//! - [`layer`], [`effect`], [`mask`], [`geometry_mask`], [`texture_set`], [`doc`], [`report`]: the document
+//! - [`layer`], [`effect`], [`mask`], [`geometry_mask`], [`texture_set`], [`doc`], [`report`], [`import_origin`]: the document
 //!   model; [`validate`] its invariants.
 //! - [`instance`]: layer instances, resolved into their texture set at composite time; which sets an edit reaches.
 //! - [`embedded`]: library assets a document embeds (AS-21); [`fragment`]: smart materials and smart masks.
@@ -39,6 +39,7 @@ pub mod fragment;
 pub mod geometry_mask;
 pub mod height_normal;
 pub mod image;
+pub mod import_origin;
 pub mod instance;
 pub mod layer;
 pub mod layer_preview;
@@ -76,6 +77,7 @@ pub use fill_texture::TextureFill;
 pub use fragment::{Fragment, FragmentContent, FragmentKind};
 pub use geometry_mask::{GeometryMask, Inclusion};
 pub use image::{ImageError, Rect, TILE_SIZE, Tile, TiledImage};
+pub use import_origin::ImportOrigin;
 pub use instance::InstanceLink;
 pub use layer::{ChannelBlend, Fill, FillSource, Layer, LayerImage, LayerKind, PaintContent};
 pub use lock::{LayerLock, LockReason};

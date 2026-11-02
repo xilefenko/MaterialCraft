@@ -8,6 +8,7 @@ mod effect_fixtures;
 mod effects;
 mod fixtures;
 mod fragments;
+mod import_origin;
 mod instances;
 mod locks;
 mod manifest_errors;
