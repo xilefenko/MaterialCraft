@@ -3,6 +3,7 @@
 
 use crate::translate::blocker_summary::BlockerSummary;
 use crate::translate::layers::correction::{CORRECTION_ID, coverage_of};
+use crate::translate::layers::island_texels::IslandTexels;
 use crate::translate::{DEFAULTS_LAYER_ID, PAINTER_RESULT_ID};
 use materialcraft::paint::{Channel, Document};
 use std::path::PathBuf;
@@ -43,7 +44,8 @@ impl ProjectBlockers {
             .texture_sets
             .iter()
             .filter_map(|s| {
-                let channels = s.layers.iter().find_map(coverage_of)?;
+                let islands = IslandTexels::rasterise(&doc.mesh, &[s.material_slot], s.uv_set, s.resolution);
+                let channels = s.layers.iter().find_map(|l| coverage_of(l, islands.as_ref()))?;
                 Some(SetCoverage {
                     set: s.name.clone(),
                     channels,
