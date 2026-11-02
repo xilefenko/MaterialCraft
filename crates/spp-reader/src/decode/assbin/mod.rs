@@ -23,7 +23,7 @@ mod repair;
 mod scene;
 mod scene_mesh;
 #[cfg(test)]
-mod test_writer;
+pub(crate) mod test_writer;
 #[cfg(test)]
 mod tests;
 mod transform;

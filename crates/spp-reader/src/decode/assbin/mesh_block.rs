@@ -32,17 +32,12 @@ pub struct RawArray<'a> {
 impl RawArray<'_> {
     /// Decodes the array as 3-component vectors.
     pub fn vec3s(&self) -> Vec<[f32; 3]> {
-        self.bytes
-            .chunks_exact(VEC3_LEN)
-            .map(|c| [f32_at(c, 0), f32_at(c, 4), f32_at(c, 8)])
-            .collect()
+        self.bytes.as_chunks::<VEC3_LEN>().0.iter().map(vec3).collect()
     }
 }
 
-fn f32_at(chunk: &[u8], at: usize) -> f32 {
-    let mut b = [0u8; 4];
-    b.copy_from_slice(&chunk[at..at + 4]);
-    f32::from_le_bytes(b)
+fn vec3(&[x0, x1, x2, x3, y0, y1, y2, y3, z0, z1, z2, z3]: &[u8; VEC3_LEN]) -> [f32; 3] {
+    [[x0, x1, x2, x3], [y0, y1, y2, y3], [z0, z1, z2, z3]].map(f32::from_le_bytes)
 }
 
 pub struct MeshBlock<'a> {

@@ -87,7 +87,11 @@ impl ChunkGrid {
             )));
         }
         // Both bounds are at most `out.len()`, so they fit in usize.
-        storage.read_into(addr, &mut out[start as usize..(start + len) as usize], "data chunk")
+        let range = start as usize..(start + len) as usize;
+        let target = out
+            .get_mut(range)
+            .ok_or_else(|| Hdf5Error::Corrupt(format!("chunk at {addr:#x} lies outside the dataset")))?;
+        storage.read_into(addr, target, "data chunk")
     }
 }
 

@@ -50,7 +50,8 @@ impl<'a> QDataStream<'a> {
             return Err(QdsError::InvalidUtf16 { at });
         }
         let bytes = self.reader.bytes(len as usize)?;
-        let units = bytes.chunks_exact(2).map(|c| u16::from_be_bytes([c[0], c[1]]));
+        // `len` is even, so `as_chunks` leaves no remainder.
+        let units = bytes.as_chunks::<2>().0.iter().map(|&pair| u16::from_be_bytes(pair));
         char::decode_utf16(units)
             .collect::<Result<String, _>>()
             .map(Some)

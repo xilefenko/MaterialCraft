@@ -32,10 +32,7 @@ pub struct ByteReader<'a> {
 macro_rules! read_num {
     ($name:ident, $ty:ty, $from:ident) => {
         pub fn $name(&mut self) -> Result<$ty, OutOfBounds> {
-            let b = self.bytes(std::mem::size_of::<$ty>())?;
-            Ok(<$ty>::$from(
-                b.try_into().expect("slice length matches type size"),
-            ))
+            Ok(<$ty>::$from(self.array()?))
         }
     };
 }
@@ -83,30 +80,46 @@ impl<'a> ByteReader<'a> {
 
     /// Next `n` bytes, borrowed from the underlying data.
     pub fn bytes(&mut self, n: usize) -> Result<&'a [u8], OutOfBounds> {
-        let end = self.pos.checked_add(n).filter(|&e| e <= self.data.len());
-        match end {
-            Some(end) => {
-                let out = &self.data[self.pos..end];
-                self.pos = end;
-                Ok(out)
-            }
-            None => Err(OutOfBounds {
+        let out = self
+            .pos
+            .checked_add(n)
+            .and_then(|end| self.data.get(self.pos..end))
+            .ok_or(OutOfBounds {
                 at: self.pos,
                 wanted: n,
                 len: self.data.len(),
-            }),
-        }
+            })?;
+        self.pos += n;
+        Ok(out)
+    }
+
+    /// Next `N` bytes as a fixed-size array.
+    pub fn array<const N: usize>(&mut self) -> Result<[u8; N], OutOfBounds> {
+        let out = self
+            .data
+            .get(self.pos..)
+            .and_then(<[u8]>::first_chunk::<N>)
+            .copied()
+            .ok_or(OutOfBounds {
+                at: self.pos,
+                wanted: N,
+                len: self.data.len(),
+            })?;
+        self.pos += N;
+        Ok(out)
     }
 
     /// Everything from the current position to the end.
     pub fn rest(&mut self) -> &'a [u8] {
-        let out = &self.data[self.pos..];
+        // `pos` never exceeds the length: `seek` checks it and reads stop at the end.
+        let out = self.data.get(self.pos..).unwrap_or_default();
         self.pos = self.data.len();
         out
     }
 
     pub fn u8(&mut self) -> Result<u8, OutOfBounds> {
-        Ok(self.bytes(1)?[0])
+        let [b] = self.array()?;
+        Ok(b)
     }
 
     read_num!(u16_le, u16, from_le_bytes);
@@ -147,5 +160,15 @@ mod tests {
         );
         assert_eq!(r.pos(), 0);
         assert_eq!(r.bytes(usize::MAX).unwrap_err().wanted, usize::MAX);
+    }
+
+    #[test]
+    fn single_bytes_and_the_rest_stop_at_the_end() {
+        let mut r = ByteReader::new(&[7, 8]);
+        assert_eq!(r.u8(), Ok(7));
+        assert_eq!(r.rest(), &[8]);
+        assert_eq!(r.u8().unwrap_err().at, 2);
+        assert_eq!(r.rest(), &[] as &[u8]);
+        assert_eq!(r.array::<1>().unwrap_err().wanted, 1);
     }
 }

@@ -88,6 +88,7 @@ impl AssbinHeader {
 }
 
 fn nul_terminated(bytes: &[u8]) -> String {
-    let end = bytes.iter().position(|&b| b == 0).unwrap_or(bytes.len());
-    String::from_utf8_lossy(&bytes[..end]).into_owned()
+    // `split` always yields at least one piece: everything before the first NUL, or all of `bytes`.
+    let text = bytes.split(|&b| b == 0).next().unwrap_or_default();
+    String::from_utf8_lossy(text).into_owned()
 }

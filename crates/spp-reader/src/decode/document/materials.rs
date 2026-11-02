@@ -20,7 +20,7 @@ const MATERIAL: &str = "DataMaterial";
 pub struct ChannelRecord {
     /// Channel bit, the same as in texture-cache paths (1 = base colour, …).
     pub type_bit: u64,
-    /// Painter's storage format enum (meaning per value: see the internal docs).
+    /// Painter's storage format enum: 0 sRGB8, 1 L8, 5 L16F, 6 RGB16F for the channels seen so far.
     pub format: u64,
     /// Name of a user channel; empty for standard ones.
     pub user_name: String,

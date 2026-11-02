@@ -1,7 +1,6 @@
 //! [`PainterBrush`]: the brush a paint effect's strokes were painted with (`DataBrush`) and how it lays its stamps
 //! along a stroke (`stampsEmitter`: `DataEmitterStroke`, `DataEmitterPhysics` for particle brushes,
-//! `DataEmitterStroke3D` for path strokes). Field meanings and counts: `interop/painter-document-catalogue.md`
-//! (`DataBrush`, `DataEmitterStroke`); the meanings in the comments are Inferred unless the import's replay
+//! `DataEmitterStroke3D` for path strokes). The meanings in the comments are Inferred unless the import's replay
 //! calibration says otherwise (`translate::layers::replay`).
 
 /// `DataBrush`.

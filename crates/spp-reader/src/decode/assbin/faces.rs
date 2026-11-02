@@ -31,7 +31,7 @@ pub fn triangulate(faces: &[u8], face_count: u32, vertex_count: usize) -> Result
             polygon.push(checked_index(read_u32(&mut r)?, vertex_count)?);
         }
         if let [first, rest @ ..] = polygon.as_slice() {
-            triangles.extend(rest.windows(2).map(|pair| [*first, pair[0], pair[1]]));
+            triangles.extend(rest.iter().zip(rest.iter().skip(1)).map(|(&b, &c)| [*first, b, c]));
         }
     }
     Ok(triangles)

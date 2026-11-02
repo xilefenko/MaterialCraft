@@ -1,6 +1,6 @@
 //! [`PainterStroke`]: one brush stroke as Painter stores it (`DataStroke`): the pen's path as 2D points with
 //! their time, a separate pressure timeline, the camera and the view it was painted in, the symmetry copies and
-//! the random seed. Field meanings and counts: `interop/painter-document-catalogue.md` (`DataStroke`).
+//! the random seed. Field meanings are in the comments; those marked Inferred come from the corpus, not Painter.
 
 /// A 4×4 matrix as stored (16 floats; column-major as OpenGL keeps it: the translation is in 12 … 14,
 /// Inferred from the view and projection matrices of the corpus).

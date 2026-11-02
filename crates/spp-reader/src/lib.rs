@@ -12,6 +12,15 @@
 //!   `brush-alpha:<name>`, …), so importers, reports and corpus censuses can name the same things the same way.
 //!
 //! Everything is read from the user's own files at run time; the crate contains no Painter code, data or resources.
+#![deny(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing,
+    clippy::unimplemented,
+    clippy::todo,
+    clippy::unreachable
+)]
 
 pub mod blockers;
 pub mod container;
@@ -21,3 +30,5 @@ pub mod model;
 pub mod project;
 
 mod inflate;
+#[cfg(test)]
+mod robustness_tests;

@@ -1,8 +1,8 @@
 //! [`ChannelBlending`]: one `DataBlending` entry (blend mode and opacity for a set of channels) and
 //! [`PainterBlendMode`], Painter's `blendingMode` enum.
 //!
-//! Only values with evidence are named (see `interop/painter-document-catalogue.md` for the table and
-//! confidence of each); everything else stays [`PainterBlendMode::Unknown`] with the stored number.
+//! Only values with evidence are named, each marked Observed or Inferred; everything else stays
+//! [`PainterBlendMode::Unknown`] with the stored number.
 
 use super::channel::{ChannelMask, PainterChannel};
 use std::fmt;

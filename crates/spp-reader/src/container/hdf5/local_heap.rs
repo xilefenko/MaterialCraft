@@ -42,11 +42,12 @@ impl LocalHeap {
             .ok()
             .and_then(|at| self.data.get(at..))
             .ok_or_else(|| Hdf5Error::Corrupt(format!("name offset {offset} is outside the local heap")))?;
-        let end = rest
+        let name = rest
             .iter()
             .position(|&b| b == 0)
+            .and_then(|end| rest.get(..end))
             .ok_or_else(|| Hdf5Error::Corrupt(format!("name at heap offset {offset} is not terminated")))?;
-        Ok(String::from_utf8_lossy(&rest[..end]).into_owned())
+        Ok(String::from_utf8_lossy(name).into_owned())
     }
 }
 
