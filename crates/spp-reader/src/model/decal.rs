@@ -1,7 +1,6 @@
 //! [`DecalHit`]: one pick of Painter's polygon fill tool (`DataDecalHitRect`, `DataDecalHitPunctual` in
 //! `DataActionDecal.hits`): a click or a dragged rectangle, in the 2D (UV) view or in the 3D view with the
-//! camera it was made with, the value it writes and how far the pick grows. Field meanings and counts:
-//! `interop/painter-document-catalogue.md` (`DataDecalHit*`).
+//! camera it was made with, the value it writes and how far the pick grows. Field meanings are in the comments.
 
 use super::stroke::{PainterView, StoredMat4};
 

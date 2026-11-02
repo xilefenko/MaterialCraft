@@ -1,6 +1,6 @@
 //! Entries of `/texture-cache`: the flattened layer-stack result per texture set and channel.
 //! Paths are `/texture-cache/<set>/<n>` (2019) or `/texture-cache/<set>/<tile>/<n>` (2020 on), where `<n>` is
-//! a single channel bit (see the internal docs for the table).
+//! a single channel bit ([`crate::model::PainterChannel::from_bit`] names them).
 
 use super::layout::Layout;
 use super::paths;

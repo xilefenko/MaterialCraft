@@ -1,4 +1,4 @@
-//! Counts of `Data*` object classes in one serialised file, to measure what later milestones need.
+//! Counts of `Data*` object classes in one serialised file, to measure which classes a reader still has to support.
 
 use super::header::DocumentHeader;
 use super::walker::{Visitor, walk};

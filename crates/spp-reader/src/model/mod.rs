@@ -1,6 +1,7 @@
 //! Stage 3 of the import pipeline: Painter's own concepts as typed Rust, built from the `document.bin`
 //! object tree. A faithful mirror (Painter's names, numbers and ordering); mapping to MaterialCraft's
-//! paint model is `translate`'s job. Field meanings and evidence: `interop/painter-document-catalogue.md`.
+//! paint model is `translate`'s job. Field meanings are in the comments of each type; those marked Inferred come
+//! from the corpus rather than from Painter.
 //!
 //! Entry point: [`PainterDocument::from_bytes`] → ([`PainterDocument`], [`ModelReport`]).
 //! - [`baking`]: the baking settings (`/baking/baking.ini`), a separate object tree; [`cameras`]: the viewer and

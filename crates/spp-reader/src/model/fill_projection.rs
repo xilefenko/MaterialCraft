@@ -1,6 +1,6 @@
 //! [`FillPlacement`]: the projection settings of a `DataActionFill` besides its mode, filter and first UV
 //! transform (see [`super::FillEffect`]): repetition, the 3D volume, falloffs, the warp grid and the size-mode
-//! fields of the UV transform. Field meanings: `MaterialCraft-docs/requirements/projections.md`, section 2.2.
+//! fields of the UV transform. The field comments give each meaning and how sure it is.
 
 /// Every field is `None` when the file does not store it.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -26,7 +26,7 @@ pub struct FillPlacement {
     pub size: Option<[f32; 3]>,
     /// `dddGrid` (`DataGridDeformation`).
     pub grid: Option<GridDeformation>,
-    /// The size-mode fields of `uvTransformation0`, kept as read (not mapped yet, ADR 0008).
+    /// The size-mode fields of `uvTransformation0`, kept as read; their meaning is not established yet.
     pub uv_sizing: Option<UvSizing>,
     /// `uvTransformation1` is present and not the identity (never seen in the corpus).
     pub second_uv_transform: bool,
