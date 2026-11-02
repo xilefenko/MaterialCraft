@@ -2,6 +2,7 @@
 //! model has the set), the flattened cache layer and Painter's defaults, arranged by
 //! [`StackStrategy`]. Without a model the set keeps the flattened import of M3.
 
+use super::blocker_summary::BlockerSummary;
 use super::channel_table::painter_default;
 use super::layers::cache_agreement::CacheAgreement;
 use super::layers::cache_agreement::Reference;
@@ -87,6 +88,7 @@ impl SetLayers<'_> {
                     defaults,
                 };
                 set.layers = strategy.assemble(parts, &channels);
+                report_blockers(report, &name, set);
                 if strategy.corrects() {
                     // Every fill laid on as the editor lays it: the surface map in the scene's frame.
                     let surface = surface_map(mesh, set);
@@ -118,6 +120,32 @@ impl SetLayers<'_> {
     fn painter_set(&self, source: &SetSource) -> Option<&PainterTextureSet> {
         let uid = source.record.scene_uid.filter(|_| source.in_document)?;
         self.document?.texture_set(uid)
+    }
+}
+
+/// One report line per blocker of the set: what it is, how many layers it locks (alone), and what unlocks it.
+fn report_blockers(report: &mut Reporter, name: &str, set: &TextureSet) {
+    let summary = BlockerSummary::of_set(set);
+    for b in &summary.blockers {
+        let text = summary
+            .locked
+            .get(b.layers[0])
+            .and_then(|l| set.layer(&l.layer))
+            .and_then(|l| l.lock.as_ref());
+        let text = text
+            .and_then(|lock| lock.reasons.iter().find(|r| r.key == b.key))
+            .map_or(b.key.as_str(), |r| r.text.as_str());
+        let action = b.support.map_or_else(|| "unknown blocker".to_string(), |s| s.action());
+        let note = format!(
+            "{text}: locks {} layers ({} by it alone); {action}",
+            b.layers.len(),
+            b.only
+        );
+        report.add(
+            format!("texture set \"{name}\" / blocker {}", b.key),
+            Fidelity::KeptRaw,
+            note,
+        );
     }
 }
 
