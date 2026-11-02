@@ -57,7 +57,7 @@ impl ProceduralSummary {
         sets
     }
 
-    /// Distinct values per parameter, in first-use order (at most [`MAX_VALUES`] each).
+    /// Distinct values per parameter, in first-use order (at most `MAX_VALUES` each).
     pub fn params(&self) -> Vec<(String, Vec<String>)> {
         let mut out: Vec<(String, Vec<String>)> = Vec::new();
         for (k, v) in self.uses.iter().flat_map(|u| &u.params) {

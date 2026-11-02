@@ -1,52 +1,54 @@
 //! `mcsub`: inspect and import Substance Painter projects.
 //!
-//!     mcsub inspect <file.spp> [--verify]          one project, all sections
-//!     mcsub tree <file.spp>                        every group and dataset in the file
-//!     mcsub doc <file.spp> [dataset] [--full]      document.bin (or another object file) as indented text
-//!     mcsub model <file.spp>                       Painter's layer stacks as a tree, with the model report
-//!     mcsub model --all <folder>                   build the model of every .spp below the folder
-//!     mcsub corpus <folder> [--verify]             one table row per .spp below the folder
-//!     mcsub analyze <file.spp> [--library <dir>]   Substance procedurals used, replacements, accuracy (JSON);
-//!                                                  with a library also the material fills and our suggestions
-//!     mcsub match-materials <file.spp | folder> --library <dir> [--jobs N]
-//!                                                  suggestions per material fill and how close their looks are
-//!     mcsub library <file.spp> [<library dir>]     what the import review offers for the user's library; with a
-//!                                                  folder every candidate written into it
-//!     mcsub convert <in.spp> <out.mcpaint> [--plan choices.json | --procedurals keep|replace] [--strokes keep|replay]
-//!                                                  import and save as .mcpaint
-//!     mcsub convert --all <folder> <out dir> [--discard] [--jobs N]   convert every .spp below the folder
-//!     mcsub reimport <in.mcpaint> <out.mcpaint> [--source <file.spp>] [--plan choices.json | --procedurals keep|replace]
-//!                    [--strokes keep|replay] [--library <dir>]
-//!                                                  import a converted document's .spp again, from the source and with
-//!                                                  the options its import origin recorded (each flag overrides the
-//!                                                  stored value; `--source` when the .spp moved), save it as <out>
-//!                                                  and print what changed in the locks: layers newly unlocked, newly
-//!                                                  locked and still locked (matched by layer id, which comes from
-//!                                                  Painter's layer uid), and the locked layers per blocker key before
-//!                                                  and after (`tools::lock_diff`)
-//!     mcsub report <in>                            import and print the import report
-//!     mcsub maps <in> <out dir>                    final maps per texture set as PNGs
-//!     mcsub compare <in> <export dir> [--diff <dir>] [--height-normal <factor>]
-//!                                                  compare with Painter's exported textures
-//!     mcsub verify-layers <file.spp> [--fit] [--strokes keep|replay]
-//!                                                  imported layer stacks against Painter's texture cache
-//!     mcsub verify-layers --all <folder> [--fit] [--strokes keep|replay] [--jobs N]
-//!                                                  the same for every .spp below the folder
-//!     mcsub isolate <file.spp|folder|list.txt> [--measure] [--cases] [--joint] [--jobs N]
-//!                                                  isolated effect cases per effect id (procedural fills and
-//!                                                  filters measurable against the texture cache), see
-//!                                                  `tools::verify_layers::isolate`; `--joint`: candidate masks
-//!                                                  solved together with the other unknown masks across channels
-//!     mcsub blockers <folder> [--plan choices.json] [--strokes keep|replay] [--jobs N] [--limit N] [--top N]
-//!                    [--projects] [--tsv] [--json <file>]
-//!                                                  import every .spp below the folder (nothing saved) and rank
-//!                                                  what locks layers over the corpus, by the layers supporting
-//!                                                  each blocker would unlock; totals by what unlocks them.
-//!                                                  Markdown on stdout (`--tsv`: tab-separated); `--projects`
-//!                                                  adds a row per project with the correction's coverage;
-//!                                                  `--json` also writes everything as JSON; `--limit` takes the
-//!                                                  first N projects, `--top` shows the first N blockers.
-//!                                                  `--jobs` defaults to 2: an import holds several GB
+//! ```text
+//! mcsub inspect <file.spp> [--verify]          one project, all sections
+//! mcsub tree <file.spp>                        every group and dataset in the file
+//! mcsub doc <file.spp> [dataset] [--full]      document.bin (or another object file) as indented text
+//! mcsub model <file.spp>                       Painter's layer stacks as a tree, with the model report
+//! mcsub model --all <folder>                   build the model of every .spp below the folder
+//! mcsub corpus <folder> [--verify]             one table row per .spp below the folder
+//! mcsub analyze <file.spp> [--library <dir>]   Substance procedurals used, replacements, accuracy (JSON);
+//!                                              with a library also the material fills and our suggestions
+//! mcsub match-materials <file.spp | folder> --library <dir> [--jobs N]
+//!                                              suggestions per material fill and how close their looks are
+//! mcsub library <file.spp> [<library dir>]     what the import review offers for the user's library; with a
+//!                                              folder every candidate written into it
+//! mcsub convert <in.spp> <out.mcpaint> [--plan choices.json | --procedurals keep|replace] [--strokes keep|replay]
+//!                                              import and save as .mcpaint
+//! mcsub convert --all <folder> <out dir> [--discard] [--jobs N]   convert every .spp below the folder
+//! mcsub reimport <in.mcpaint> <out.mcpaint> [--source <file.spp>] [--plan choices.json | --procedurals keep|replace]
+//!                [--strokes keep|replay] [--library <dir>]
+//!                                              import a converted document's .spp again, from the source and with
+//!                                              the options its import origin recorded (each flag overrides the
+//!                                              stored value; `--source` when the .spp moved), save it as <out>
+//!                                              and print what changed in the locks: layers newly unlocked, newly
+//!                                              locked and still locked (matched by layer id, which comes from
+//!                                              Painter's layer uid), and the locked layers per blocker key before
+//!                                              and after (`tools::lock_diff`)
+//! mcsub report <in>                            import and print the import report
+//! mcsub maps <in> <out dir>                    final maps per texture set as PNGs
+//! mcsub compare <in> <export dir> [--diff <dir>] [--height-normal <factor>]
+//!                                              compare with Painter's exported textures
+//! mcsub verify-layers <file.spp> [--fit] [--strokes keep|replay]
+//!                                              imported layer stacks against Painter's texture cache
+//! mcsub verify-layers --all <folder> [--fit] [--strokes keep|replay] [--jobs N]
+//!                                              the same for every .spp below the folder
+//! mcsub isolate <file.spp|folder|list.txt> [--measure] [--cases] [--joint] [--jobs N]
+//!                                              isolated effect cases per effect id (procedural fills and
+//!                                              filters measurable against the texture cache), see
+//!                                              `tools::verify_layers::isolate`; `--joint`: candidate masks
+//!                                              solved together with the other unknown masks across channels
+//! mcsub blockers <folder> [--plan choices.json] [--strokes keep|replay] [--jobs N] [--limit N] [--top N]
+//!                [--projects] [--tsv] [--json <file>]
+//!                                              import every .spp below the folder (nothing saved) and rank
+//!                                              what locks layers over the corpus, by the layers supporting
+//!                                              each blocker would unlock; totals by what unlocks them.
+//!                                              Markdown on stdout (`--tsv`: tab-separated); `--projects`
+//!                                              adds a row per project with the correction's coverage;
+//!                                              `--json` also writes everything as JSON; `--limit` takes the
+//!                                              first N projects, `--top` shows the first N blockers.
+//!                                              `--jobs` defaults to 2: an import holds several GB
+//! ```
 //!
 //! `convert`, `report`, `maps`, `compare`, `verify-layers` and `blockers` take `--plan <choices.json>` or
 //! `--procedurals keep|replace`: which Substance procedurals are replaced by MaterialCraft's generators

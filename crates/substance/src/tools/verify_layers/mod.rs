@@ -1,7 +1,7 @@
 //! `mcsub verify-layers`: imports each texture set's layer stack, composites every channel the stack can
 //! compute and compares it with Painter's texture cache (the flattened result Painter saved), per set and
 //! channel, on the texels of the mesh. With `--fit`, guessed blend values are identified by trying each of
-//! our modes ([`fit`]), and Painter's volume projection convention by trying candidate conventions
+//! our modes (the `fit` module), and Painter's volume projection convention by trying candidate conventions
 //! ([`projection_fit`]).
 
 mod fit;

@@ -1,8 +1,8 @@
 //! Painter's baking settings for one texture set mapped onto ours: [`MappedBake::of`] turns a
 //! [`MaterialBaking`] into the baker's [`BakeSettings`] (and the document's [`SetBakeConfig`]), listing every
 //! setting we cannot reproduce as [`Unmapped`]. The importer stores the result in each texture set; `mcparity`
-//! bakes with the very same mapping, so there is one table only. Per-baker settings are mapped in [`bakers`], the
-//! high-poly source in [`high`].
+//! bakes with the very same mapping, so there is one table only. Per-baker settings are mapped in the `bakers` module, the
+//! high-poly source in `high`.
 
 mod bakers;
 mod high;

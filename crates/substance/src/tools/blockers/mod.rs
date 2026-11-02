@@ -4,7 +4,7 @@
 //! by how many layers supporting each one would unlock ([`Census::ranked`]).
 //!
 //! - [`project`]: one imported project's record.
-//! - [`census`]: the aggregation, without I/O.
+//! - [`census`](mod@census): the aggregation, without I/O.
 //! - [`render`]: markdown, TSV and JSON.
 //! - [`run`]: imports the projects on a [`crate::tools::parallel::CorpusPool`].
 
