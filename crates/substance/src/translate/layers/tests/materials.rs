@@ -1,4 +1,4 @@
-//! Substance material fills replaced by a material of ours (roadmap step 27).
+//! Substance material fills replaced by a material of ours.
 
 use super::fixtures::*;
 use crate::model::PainterLayer;

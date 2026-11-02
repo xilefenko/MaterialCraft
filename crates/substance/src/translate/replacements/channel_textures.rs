@@ -1,5 +1,5 @@
 //! Painter fill sources that are a procedural texture (one grey output feeding channels) replaced by one of
-//! MaterialCraft's textures (roadmap step 48): when the plan replaces the texture, the channels the source feeds
+//! MaterialCraft's textures: when the plan replaces the texture, the channels the source feeds
 //! become a [`TextureFill`] with our texture and its translated parameters, laid on by the fill's projection, and
 //! the Painter procedural is kept as the fill's [`Fill::original`]. A Substance material (several outputs, see
 //! [`super::materials`]) never takes this path.

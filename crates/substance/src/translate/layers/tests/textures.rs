@@ -1,4 +1,4 @@
-//! Painter fills whose channels come from a procedural texture, replaced by one of our textures (roadmap step 48).
+//! Painter fills whose channels come from a procedural texture, replaced by one of our textures.
 
 use super::fixtures::*;
 use crate::model::{PainterLayer, PainterSource};

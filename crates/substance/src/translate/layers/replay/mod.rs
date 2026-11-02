@@ -1,4 +1,4 @@
-//! Replaying Painter's brush strokes at import (roadmap step 32): painted masks and the brush work of paint layers
+//! Replaying Painter's brush strokes at import: painted masks and the brush work of paint layers
 //! become real paint pixels, made by our brush pipeline (`materialcraft_brush`) from the stroke records the
 //! import keeps anyway, with Painter's brush mapped by [`brush_map`] and its alpha by [`tip`].
 //!
@@ -190,7 +190,7 @@ impl<'a> StrokeReplay<'a> {
     fn paint_mask(&self, effect: &PaintEffect) -> Result<Replayed<TiledImage>, Blocker> {
         let value = match effect.tool {
             PaintTool::Brush => mask_value(effect)?,
-            // erasing a mask paints black over what the effect's strokes reach (PT-20)
+            // erasing a mask paints black over what the effect's strokes reach, as our eraser does on masks
             _ => 0.0,
         };
         effect::check(effect)?;

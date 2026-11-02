@@ -6,8 +6,6 @@
 //!   what can be unlocked ([`translate::catalog`]).
 //! - [`tools`]: what `mcsub` runs on top of the importer (map dumps, export comparison, batch conversion, the blocker
 //!   census, re-import).
-//!
-//! Format notes live in the internal docs (`interop/substance-painter.md`), not here.
 
 pub use spp_reader::{blockers, container, decode, inspect, model, project};
 

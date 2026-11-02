@@ -1,5 +1,5 @@
 //! Mapping tables from Painter's channel bits, channel formats and baked-map usages to ours.
-//! The values were read off the whole corpus (see the internal docs); anything else is reported, not guessed.
+//! The values were read off real projects; anything else is reported, not guessed.
 
 use materialcraft::paint::{BakedKind, Channel, ChannelSpec, ColorSpace, PixelFormat, PixelLayout, SampleType};
 

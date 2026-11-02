@@ -1,5 +1,4 @@
-//! Suggesting our materials for a project's Substance material fills (roadmap step 27, ADR 0008
-//! rm-material-fills): the import review offers, per Painter material, the tray materials ranked by
+//! Suggesting our materials for a project's Substance material fills: the import review offers, per Painter material, the tray materials ranked by
 //! [`Suggestion::score`], from
 //!
 //! - the name: the Painter material's name against our material's name and tags ([`names`]), and

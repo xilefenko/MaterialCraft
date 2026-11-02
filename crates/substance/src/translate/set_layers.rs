@@ -1,6 +1,6 @@
 //! [`SetLayers`]: the final layer stack of one texture set: the imported Painter layers (when the document
 //! model has the set), the flattened cache layer and Painter's defaults, arranged by
-//! [`StackStrategy`]. Without a model the set keeps the flattened import of M3.
+//! [`StackStrategy`]. Without a model the set keeps Painter's flattened result as its only layer.
 
 use super::blocker_summary::BlockerSummary;
 use super::channel_table::painter_default;

@@ -8,7 +8,7 @@
 //!
 //! `procedurals` may also be the `procedurals` array `mcsub analyze` prints, each entry with a `"choice"`.
 //!
-//! Substance material fills (roadmap step 27) are chosen apart: `"materials"` maps a Painter material's graph
+//! Substance material fills are chosen apart: `"materials"` maps a Painter material's graph
 //! name to a material of ours (a library reference such as `materials/iron-rusted.mca`) or to `"keep"`
 //! (Painter's flattened result, also what every material not listed gets). It may also be the `materials`
 //! array `mcsub analyze --library` prints, each entry with a `"choice"`:

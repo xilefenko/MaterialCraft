@@ -10,7 +10,7 @@ publish = false
 [dependencies]
 spp-reader = { path = "../spp-reader" }
 materialcraft = { path = "../.." }
-# replays imported strokes (roadmap step 32)
+# replays imported brush strokes with MaterialCraft's brush engine
 materialcraft-brush = { path = "../brush" }
 lz4_flex = { version = "0.11", default-features = false, features = ["std", "safe-decode"] }
 

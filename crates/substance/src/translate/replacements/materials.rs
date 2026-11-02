@@ -1,4 +1,4 @@
-//! Substance material fills replaced by a material of ours (roadmap step 27, ADR 0008 rm-material-fills).
+//! Substance material fills replaced by a material of ours.
 //!
 //! Painter marks a fill source that is a whole material (several outputs feeding the channels) with `mode` 1.
 //! The user picks one of our materials per Painter material in the import review ([`ProceduralPlan::material`]);

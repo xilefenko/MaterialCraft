@@ -1,17 +1,17 @@
 //! The one mapping of Painter's fill projection settings (`DataActionFill`) to ours ([`Projection`]), with how
-//! exact it is: [`ProjectionTable`]. Table and evidence: `MaterialCraft-docs/requirements/projections.md`,
-//! sections 2 and 3.5 (fit errors per mode next to the table there).
+//! exact it is: [`ProjectionTable`]. "Exact" means measured against Painter's cache on real projects; the rest is
+//! approximated until it is.
 //!
 //! | Painter | Ours | Status |
 //! |---|---|---|
-//! | `projection` 6 | texture space | exact (ADR 0006 Q-PJ-01: no placement was ever edited in 1,639 fills; a stale guess shows up as a cache disagreement) |
-//! | `projection` 0, identity `uvTransformation0` | UV, identity (the same pixels as texture space on one tile) | exact (LEAD STAMM/HERZ bitmap fills: ≤ 0.33 steps on the mesh's texels; the cache's padding off the islands is not layer content, see [`super::island_texels`]) |
+//! | `projection` 6 | texture space | exact (no placement can be edited in this mode; a stale guess would show up as a cache disagreement) |
+//! | `projection` 0, identity `uvTransformation0` | UV, identity (the same pixels as texture space on one tile) | exact (bitmap fills measured within 0.33 steps on the mesh's texels; the cache's padding off the islands is not layer content, see [`super::island_texels`]) |
 //! | `projection` 0 with tiling/offset/rotation | UV with that placement (radians → degrees) | approximated: the rotation/offset convention is not verified |
 //! | `projection` 2 + `sideHardness` | tri-planar + blend hardness ([`VolumeConvention::hardness`]) | approximated until fitted by pixels |
 //! | `projection` 1 + culling fields | planar + depth falloff (`depthCulling*`) + facing falloff (`backfaceCulling*`, angle × 180°) | approximated until fitted |
 //! | `projection` 3, 4 | spherical, cylindrical (`cylinderCullingAngle` × 360°, `cylinderHideCaps`) | approximated: the mode itself is unconfirmed (no Painter test file) |
 //! | `ddd*` of modes 1–4 | volume: `dddPosition` × [`VolumeConvention::position`], `dddEulerAngles` (radians, [`VolumeConvention::euler`] order) → our x-y-z degrees, `dddSize` × [`VolumeConvention::size`]; `dddWrap` 0 → clip | with the mode |
-//! | `projection` 7 + `dddGrid` | warp: the volume as for modes 1–4, `gridSize` = (columns, rows), the vertices row by row with `position3D` as grid positions, `positionUV` (v up) → our image coordinate (u, 1 − v), the four tangents as handles (column = along u); `depth` → projection depth; `depthCulling*` → depth falloff | approximated: our own warp, no pixel matching (ADR 0008 mc2-q-pj-05) |
+//! | `projection` 7 + `dddGrid` | warp: the volume as for modes 1–4, `gridSize` = (columns, rows), the vertices row by row with `position3D` as grid positions, `positionUV` (v up) → our image coordinate (u, 1 − v), the four tangents as handles (column = along u); `depth` → projection depth; `depthCulling*` → depth falloff | approximated: our own warp, no pixel matching |
 //! | `projection` 7 with a malformed grid | texture space | approximated |
 //! | other values | texture space | approximated (unknown mode) |
 //! | `filtering` 2 / 0 | smooth / bilinear | 0 is a guess (nearest or bilinear): approximated where it matters |

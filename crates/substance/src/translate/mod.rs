@@ -3,8 +3,8 @@
 //! [`channel_table`], [`source_format`], [`normal_conventions`], [`bake_settings`] and [`replacements`]
 //! (Substance procedurals → MaterialCraft's generators).
 //!
-//! Each texture set gets Painter's layer stack ([`layers`], M5) and the flattened channels from the texture
-//! cache (M3) as one paint layer, either on top (when not every layer is computable) or as a hidden reference,
+//! Each texture set gets Painter's layer stack ([`layers`]) and the flattened channels from the texture
+//! cache as one paint layer, either on top (when not every layer is computable) or as a hidden reference,
 //! plus its baked mesh maps; everything not translated is kept under `foreign/substance/`.
 //!
 //! Beside the import, [`library`] lists what the project brings for the user's own asset library (brush presets,

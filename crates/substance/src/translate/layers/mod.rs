@@ -1,4 +1,4 @@
-//! Layer import (M5): a Painter texture set's layer stack ([`crate::model::PainterTextureSet`]) as our
+//! Layer import: a Painter texture set's layer stack ([`crate::model::PainterTextureSet`]) as our
 //! layers ([`materialcraft::paint::Layer`]), and how exactly they reproduce Painter.
 //!
 //! - [`blend_table`]: the one mapping of Painter's blend values to ours, and Painter's defaults.

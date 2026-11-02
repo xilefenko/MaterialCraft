@@ -1,4 +1,4 @@
-//! A project's cameras → the document's camera list (requirements CM-02, CM-04; ADR 0008 mc2-vq6, mc2-vq15).
+//! A project's cameras → the document's camera list.
 //!
 //! - Painter's viewer camera as the project was saved (`/editor/camera.ini` `defaultCamera`) becomes our default
 //!   camera, so the document opens with Painter's view, and an imported camera "Saved view" that keeps it.

@@ -1,4 +1,4 @@
-//! What an imported project brings for the user's own asset library (roadmap step 46): the import review lists these
+//! What an imported project brings for the user's own asset library: the import review lists these
 //! [`LibraryCandidates`] with an "Add to my library" checkbox each, and [`LibraryExport`] writes the ticked ones into
 //! the user's library folder. The imported document is not touched: it keeps embedding its own copies.
 //!

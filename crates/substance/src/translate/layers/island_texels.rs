@@ -1,8 +1,8 @@
 //! [`IslandTexels`]: the texels of a texture set that lie on its mesh (inside its UV islands, partly covered
 //! texels included). Painter renders layer content only there; the rest of its texture cache holds its padding
 //! (the island borders dilated outwards), which no layer produces. A UV-projected fill on a set whose islands
-//! leave most of the tile empty therefore matches the cache on the islands and nowhere else (LEAD STAMM
-//! `plywoodSurface`: 6 % of the tile covered, 0.09 steps there, 11 outside). Cache scores compare these texels.
+//! leave most of the tile empty therefore matches the cache on the islands and nowhere else (on one measured set,
+//! 6 % of the tile covered: 0.09 steps there, 11 outside). Cache scores compare these texels.
 
 use materialcraft::mesh::{Mesh, SurfaceKey, SurfaceMap};
 
