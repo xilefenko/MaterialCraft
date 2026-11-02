@@ -71,7 +71,7 @@ impl PaintMode {
                 self.diag.info(Area::Import, format!("Import of {} cancelled.", review.source().display()));
                 self.review = None;
             }
-            ReviewOutcome::Import(plan, to_library) => {
+            ReviewOutcome::Import(plan, to_library, replay) => {
                 let path = review.source().to_path_buf();
                 let library = review.library().to_vec();
                 self.review = None;
@@ -80,7 +80,7 @@ impl PaintMode {
                     self.library_imports.start(path.clone(), request);
                 }
                 self.diag.info(Area::Project, format!("Opening {}", path.display()));
-                self.loader = Some(Loader::start_with(path, plan, library));
+                self.loader = Some(Loader::start_with(path, plan, library, replay));
             }
         }
     }
@@ -114,6 +114,7 @@ impl PaintMode {
             self.diag.emit(diag_entries::import_summary(report, &doc.source().display().to_string(), doc.summary.as_deref()));
         }
         self.layers.reset();
+        self.blockers.reset();
         // the quick mask and the tools' caches belong to the document that was open
         self.painting.forget_document();
         self.scene.set_tint(None);
@@ -140,6 +141,7 @@ impl PaintMode {
     pub(super) fn close(&mut self) {
         self.scene.clear(self.viewport.gpu());
         self.layers.reset();
+        self.blockers.reset();
         self.document = None;
         self.diag.info(Area::Project, "Document closed.");
     }

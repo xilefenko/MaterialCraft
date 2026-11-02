@@ -17,6 +17,8 @@ pub enum Icon {
     /// A stack of layers seen from the side (the layer panel).
     Stack,
     Report,
+    /// A padlock (the blockers panel).
+    Lock,
     Display,
     Keyboard,
     Interface,
@@ -91,6 +93,11 @@ impl Icon {
                 for dy in [-0.3, 0.0, 0.3] {
                     poly(&[p(-0.25, dy), p(0.25, dy)]);
                 }
+            }
+            Icon::Lock => {
+                painter.rect_stroke(Rect::from_min_max(p(-0.55, -0.1), p(0.55, 0.65)), 1.0, line, eframe::egui::StrokeKind::Middle);
+                poly(&[p(-0.32, -0.1), p(-0.32, -0.4), p(-0.15, -0.6), p(0.15, -0.6), p(0.32, -0.4), p(0.32, -0.1)]);
+                painter.circle_filled(p(0.0, 0.25), s * 0.11, color);
             }
             Icon::Shader => {
                 painter.circle_stroke(c, s * 0.62, line);

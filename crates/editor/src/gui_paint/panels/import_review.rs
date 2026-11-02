@@ -9,6 +9,7 @@ use super::import_review_materials::MaterialChoices;
 use crate::gui_paint::import_review::Findings;
 use eframe::egui::{self, RichText};
 use materialcraft_substance::tools::analyze::{Analysis, ProceduralSummary};
+use materialcraft_substance::translate::layers::replay::ReplayChoice;
 use materialcraft_substance::translate::library::LibraryCandidates;
 use materialcraft_substance::translate::replacements::{Choice, ProceduralPlan};
 use std::path::Path;
@@ -16,10 +17,11 @@ use std::sync::Arc;
 
 /// What the user decided.
 pub enum ReviewResult {
-    /// Import with `plan`; write the `library` candidates (their keys) into the user's library.
+    /// Import with `plan` and the `replay` choice; write the `library` candidates (their keys) into the user's library.
     Import {
         plan: ProceduralPlan,
         library: Vec<String>,
+        replay: ReplayChoice,
     },
     Cancel,
 }
@@ -30,6 +32,8 @@ pub struct ReviewDialog {
     choices: Vec<(String, Choice)>,
     materials: MaterialChoices,
     library: LibraryChoices,
+    /// Replay brush strokes (off by default: slower and not yet shown to match Painter).
+    replay: bool,
 }
 
 impl ReviewDialog {
@@ -38,7 +42,13 @@ impl ReviewDialog {
     pub fn new(findings: Findings, writable: bool) -> ReviewDialog {
         let Findings { analysis, materials, tray, library } = findings;
         let choices = analysis.procedurals.iter().filter(|p| p.replacement.is_some()).map(|p| (p.name.clone(), Choice::Keep)).collect();
-        ReviewDialog { analysis, choices, materials: MaterialChoices::new(materials, tray), library: LibraryChoices::new(Arc::new(library), writable) }
+        ReviewDialog {
+            analysis,
+            choices,
+            materials: MaterialChoices::new(materials, tray),
+            library: LibraryChoices::new(Arc::new(library), writable),
+            replay: false,
+        }
     }
 
     /// The candidates the library section offers.
@@ -50,6 +60,11 @@ impl ReviewDialog {
     pub fn plan(&self) -> ProceduralPlan {
         let plan = self.choices.iter().fold(ProceduralPlan::default(), |plan, (name, c)| plan.with(name, *c));
         self.materials.apply(plan)
+    }
+
+    /// The stroke replay choice.
+    pub fn replay(&self) -> ReplayChoice {
+        if self.replay { ReplayChoice::Replay } else { ReplayChoice::Keep }
     }
 
     fn set_all(&mut self, choice: Choice) {
@@ -93,9 +108,11 @@ impl ReviewDialog {
                     }
                 });
                 ui.separator();
+                let tip = "Paint the project's brush strokes again with MaterialCraft's brush, so painted masks and paint layers become editable paint instead of locked layers. Slower to import, and the strokes only approximate Painter's.";
+                ui.checkbox(&mut self.replay, "Replay brush strokes (slower, approximate)").on_hover_text(tip);
                 ui.horizontal(|ui| {
                     if ui.button("Import").clicked() {
-                        result = Some(ReviewResult::Import { plan: self.plan(), library: self.library.ticked() });
+                        result = Some(ReviewResult::Import { plan: self.plan(), library: self.library.ticked(), replay: self.replay() });
                     }
                     if ui.button("Cancel").clicked() {
                         result = Some(ReviewResult::Cancel);
@@ -181,6 +198,9 @@ mod tests {
         assert_eq!(d.choices, vec![("mg_dirt".to_string(), Choice::Keep)]);
         assert!(d.materials.is_empty());
         assert_eq!(d.plan().choice("mg_dirt"), Choice::Keep);
+        assert_eq!(d.replay(), ReplayChoice::Keep, "strokes aren't replayed unless asked");
+        d.replay = true;
+        assert_eq!(d.replay(), ReplayChoice::Replay);
         d.set_all(Choice::Replace);
         let plan = d.plan();
         assert_eq!((plan.choice("mg_dirt"), plan.choice("PBR_to_Skyrim")), (Choice::Replace, Choice::Keep));

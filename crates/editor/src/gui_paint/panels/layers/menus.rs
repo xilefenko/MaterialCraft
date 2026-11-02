@@ -2,12 +2,16 @@
 //! and add-effect menus shared with the bottom bar (MK-02, MK-14).
 
 use super::events::{LayerEvent, SaveAsset};
+use super::lock_text;
 use eframe::egui::{self, Ui};
 use materialcraft::generators;
 use materialcraft::paint::edit::ops::{MaskStart, NewEffect};
 use materialcraft::paint::edit::{LayerRef, StackId};
 use materialcraft::paint::instance::InstanceRole;
 use materialcraft::paint::{GeometryMask, Layer, LayerLock};
+
+/// Blockers listed in a locked layer's menu; the blockers panel has them all.
+const MAX_REASONS: usize = 8;
 
 /// What the context menu acts on.
 pub struct MenuTarget<'a> {
@@ -110,7 +114,10 @@ pub fn context(ui: &mut Ui, t: &MenuTarget, events: &mut Vec<LayerEvent>) -> Opt
 /// The items of a locked layer: why it is locked, the mask switch and view, and unlocking.
 fn locked(ui: &mut Ui, t: &MenuTarget, lock: &LayerLock, events: &mut Vec<LayerEvent>) {
     ui.separator();
-    ui.weak(lock.summary());
+    ui.weak(lock_text::heading(lock));
+    for line in lock_text::reasons(lock, MAX_REASONS) {
+        ui.label(egui::RichText::new(format!("• {line}")).small());
+    }
     if let Some(mask) = &t.layer.mask {
         if ui.button(if mask.enabled { "Switch the mask off" } else { "Switch the mask on" }).clicked() {
             events.push(LayerEvent::SetMaskEnabled(t.r.clone(), !mask.enabled));

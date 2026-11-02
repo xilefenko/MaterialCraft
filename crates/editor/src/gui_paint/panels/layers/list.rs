@@ -155,17 +155,13 @@ impl ListState {
                     RowKind::Effect { layer, stack, index } => {
                         let Some(owner) = set.layer(layer) else { continue };
                         let r = LayerRef::new(set.id.clone(), layer.clone());
+                        let at = EffectAt { owner: layer, stack: *stack, index: *index, editable: owner.lock.is_none() };
                         let picked = *stack == StackId::Content && selection.focus() == Some(layer.as_str()) && selection.effect() == Some(*index);
                         let shown = match stack {
-                            StackId::Content => owner
-                                .effects
-                                .get(*index)
-                                .map(|e| row_ui::effect_row(ui, rect, row.depth, EffectAt { owner: layer, stack: *stack, index: *index }, e, picked)),
-                            StackId::Mask => owner
-                                .mask
-                                .as_ref()
-                                .and_then(|m| m.effects.get(*index))
-                                .map(|e| row_ui::effect_row(ui, rect, row.depth, EffectAt { owner: layer, stack: *stack, index: *index }, e, false)),
+                            StackId::Content => owner.effects.get(*index).map(|e| row_ui::effect_row(ui, rect, row.depth, at, e, picked)),
+                            StackId::Mask => {
+                                owner.mask.as_ref().and_then(|m| m.effects.get(*index)).map(|e| row_ui::effect_row(ui, rect, row.depth, at, e, false))
+                            }
                         };
                         let enabled = match stack {
                             StackId::Content => owner.effects.get(*index).is_some_and(|e| e.enabled),

@@ -11,6 +11,7 @@ use materialcraft_substance::project::SppProject;
 use materialcraft_substance::tools::accuracy::ReplacementAccuracy;
 use materialcraft_substance::tools::analyze::Analysis;
 use materialcraft_substance::tools::material_match::{MaterialMatches, TrayMaterials};
+use materialcraft_substance::translate::layers::replay::ReplayChoice;
 use materialcraft_substance::translate::library::LibraryCandidates;
 use materialcraft_substance::translate::replacements::ProceduralPlan;
 use std::path::{Path, PathBuf};
@@ -41,8 +42,9 @@ enum State {
 pub enum ReviewOutcome {
     /// Still analysing or waiting for the user.
     Pending,
-    /// Import with these choices; the library items, if any were ticked, are written into the user's library.
-    Import(ProceduralPlan, Option<LibraryRequest>),
+    /// Import with these choices (procedurals, stroke replay); the library items, if any were ticked, are written into
+    /// the user's library.
+    Import(ProceduralPlan, Option<LibraryRequest>, ReplayChoice),
     Cancelled,
 }
 
@@ -88,7 +90,7 @@ impl ImportReview {
                 let Some(result) = job.poll().into_iter().next() else {
                     if job.is_finished() {
                         // The analysis thread ended without an answer: import as before replacements existed.
-                        return ReviewOutcome::Import(ProceduralPlan::default(), None);
+                        return ReviewOutcome::Import(ProceduralPlan::default(), None, ReplayChoice::default());
                     }
                     ctx.request_repaint_after(std::time::Duration::from_millis(100));
                     return ReviewOutcome::Pending;
@@ -99,18 +101,18 @@ impl ImportReview {
                         ReviewOutcome::Pending
                     }
                     // Nothing to choose (or the layer document is unreadable, which the importer reports).
-                    _ => ReviewOutcome::Import(ProceduralPlan::default(), None),
+                    _ => ReviewOutcome::Import(ProceduralPlan::default(), None, ReplayChoice::default()),
                 }
             }
             State::Choosing(dialog) => match dialog.show(ctx, &self.source) {
-                Some(ReviewResult::Import { plan, library }) => {
+                Some(ReviewResult::Import { plan, library, replay }) => {
                     let request = match (&self.user_library, library.is_empty()) {
                         (Some(folder), false) => {
                             Some(LibraryRequest { candidates: dialog.library_candidates().clone(), keys: library, library: folder.clone() })
                         }
                         _ => None,
                     };
-                    ReviewOutcome::Import(plan, request)
+                    ReviewOutcome::Import(plan, request, replay)
                 }
                 Some(ReviewResult::Cancel) => ReviewOutcome::Cancelled,
                 None => ReviewOutcome::Pending,

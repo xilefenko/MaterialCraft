@@ -2,6 +2,7 @@
 //! for as [`PanelEvent`]s; `PaintMode` applies them.
 
 pub mod bakers;
+pub mod blockers;
 mod brush_panel;
 pub mod camera_menu;
 pub mod channel_bar;

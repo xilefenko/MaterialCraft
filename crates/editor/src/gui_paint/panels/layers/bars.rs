@@ -99,7 +99,8 @@ pub fn buttons(ui: &mut Ui, set: &str, focus: Option<(&LayerRef, &Layer)>, ids: 
                 events.push(LayerEvent::Create { set: set.to_string(), what, above: above.clone() });
             }
         }
-        ui.add_enabled_ui(focus.is_some(), |ui| {
+        let unlocked = focus.is_some_and(|(_, layer)| layer.lock.is_none());
+        ui.add_enabled_ui(unlocked, |ui| {
             if let Some((r, layer)) = focus {
                 if layer.mask.is_none() {
                     menus::add_mask(ui, r, events);

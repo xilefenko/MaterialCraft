@@ -15,6 +15,8 @@ pub enum PaintPanel {
     /// The layer stack of the focused texture set.
     Layers,
     ImportReport,
+    /// The locked layers grouped by what blocks them.
+    Blockers,
     /// Display settings (how the viewport shows the document).
     Display,
     Shortcuts,
@@ -40,6 +42,7 @@ impl PanelKind for PaintPanel {
         PaintPanel::TextureSets,
         PaintPanel::Layers,
         PaintPanel::ImportReport,
+        PaintPanel::Blockers,
         PaintPanel::Display,
         PaintPanel::Shortcuts,
         PaintPanel::Interface,
@@ -57,6 +60,7 @@ impl PanelKind for PaintPanel {
             PaintPanel::TextureSets => "texture_sets",
             PaintPanel::Layers => "layers",
             PaintPanel::ImportReport => "import_report",
+            PaintPanel::Blockers => "blockers",
             PaintPanel::Display => "display_settings",
             PaintPanel::Shortcuts => "shortcuts",
             PaintPanel::Interface => "interface_settings",
@@ -75,6 +79,7 @@ impl PanelKind for PaintPanel {
             PaintPanel::TextureSets => "Texture sets",
             PaintPanel::Layers => "Layers",
             PaintPanel::ImportReport => "Import report",
+            PaintPanel::Blockers => "Blockers",
             PaintPanel::Display => "Display settings",
             PaintPanel::Shortcuts => "Shortcuts",
             PaintPanel::Interface => "Interface settings",
@@ -93,6 +98,7 @@ impl PanelKind for PaintPanel {
             PaintPanel::TextureSets => Icon::Layers,
             PaintPanel::Layers => Icon::Stack,
             PaintPanel::ImportReport => Icon::Report,
+            PaintPanel::Blockers => Icon::Lock,
             PaintPanel::Display => Icon::Display,
             PaintPanel::Shortcuts => Icon::Keyboard,
             PaintPanel::Interface => Icon::Interface,
@@ -124,14 +130,14 @@ fn split(axis: SplitAxis, size: SplitSize, first: Node<PaintPanel>, second: Node
     Node::Split { axis, size, first: Box::new(first), second: Box::new(second) }
 }
 
-/// Texture sets above the asset tray (with the import report and the log) on the left (AS-08), the viewport,
+/// Texture sets above the asset tray (with the import report, the blockers and the log) on the left (AS-08), the viewport,
 /// layers above the brush, projection, display and shader settings on the right.
 fn painting() -> Layout<PaintPanel> {
     let left = split(
         SplitAxis::Vertical,
         SplitSize::Ratio(0.3),
         tabs(&[PaintPanel::TextureSets]),
-        tabs(&[PaintPanel::Assets, PaintPanel::ImportReport, PaintPanel::Log]),
+        tabs(&[PaintPanel::Assets, PaintPanel::ImportReport, PaintPanel::Blockers, PaintPanel::Log]),
     );
     let right = split(
         SplitAxis::Vertical,
@@ -149,7 +155,15 @@ fn baking() -> Layout<PaintPanel> {
         SplitAxis::Vertical,
         SplitSize::Ratio(0.62),
         tabs(&[PaintPanel::Bakers]),
-        tabs(&[PaintPanel::TextureSets, PaintPanel::Log, PaintPanel::Display, PaintPanel::Assets, PaintPanel::Layers, PaintPanel::ImportReport]),
+        tabs(&[
+            PaintPanel::TextureSets,
+            PaintPanel::Log,
+            PaintPanel::Display,
+            PaintPanel::Assets,
+            PaintPanel::Layers,
+            PaintPanel::ImportReport,
+            PaintPanel::Blockers,
+        ]),
     );
     Layout { root: Some(split(SplitAxis::Horizontal, SplitSize::FixedSecond(340.0), tabs(&[PaintPanel::Viewport]), right)), floating: Vec::new() }
 }

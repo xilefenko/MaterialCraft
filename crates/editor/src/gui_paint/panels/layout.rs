@@ -10,6 +10,7 @@ use super::super::tools::BrushTools;
 use super::super::tools::screen_image::ScreenImages;
 use super::super::viewport::Viewport;
 use super::bakers::BakersPanel;
+use super::blockers::BlockersPanel;
 use super::dock_content::Bodies;
 use super::import_report::ReportPanel;
 use super::layers::LayerPanel;
@@ -28,6 +29,7 @@ use materialcraft::diag::RingBuffer;
 pub struct Screen<'a> {
     pub document: Option<&'a OpenDocument>,
     pub report: &'a mut ReportPanel,
+    pub blockers: &'a mut BlockersPanel,
     pub layers: &'a mut LayerPanel,
     pub viewport: &'a mut Viewport,
     pub display: ChannelView,
@@ -82,6 +84,7 @@ pub fn show(ui: &mut egui::Ui, s: Screen) -> Vec<PanelEvent> {
         let mut bodies = Bodies {
             document: s.document,
             report: s.report,
+            blockers: s.blockers,
             layers: s.layers,
             viewport: s.viewport,
             display: s.display,

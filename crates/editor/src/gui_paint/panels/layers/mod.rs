@@ -11,6 +11,7 @@
 //!   an asset over the stack (LS-18, LS-19).
 
 mod bars;
+pub mod content_lock;
 pub mod events;
 mod geometry_icon;
 mod instance_icon;
@@ -18,6 +19,7 @@ mod instance_list;
 pub mod instantiate_dialog;
 mod list;
 mod lock_icon;
+pub mod lock_text;
 mod menus;
 mod row_ui;
 pub mod rows;
@@ -108,11 +110,14 @@ impl LayerPanel {
     }
 
     /// Whether the tools can paint: the focused layer's mask, or a paint layer's content (ADR 0008,
-    /// mc2-q-pt-02c).
+    /// mc2-q-pt-02c); never into a locked layer, whose content edits are refused.
     pub fn paintable(&self, doc: &Document) -> bool {
         let Some(layer) = self.current_set(doc).and_then(|s| s.layer(self.selection.focus()?)) else {
             return false;
         };
+        if layer.lock.is_some() {
+            return false;
+        }
         match self.selection.part {
             Part::Mask => layer.mask.is_some(),
             Part::Content => matches!(layer.kind, LayerKind::Paint(_)),

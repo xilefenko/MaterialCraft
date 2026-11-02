@@ -6,6 +6,7 @@
 use super::PaintMode;
 use super::instance_reach::Reach;
 use super::panels::PanelEvent;
+use super::panels::layers::content_lock::content_editable;
 use super::panels::projection::ProjectionEvent;
 use super::projection_edit::view::GizmoView;
 use super::projection_edit::{GizmoFrame, draw};
@@ -71,7 +72,9 @@ impl PaintMode {
             self.projection.cancel(None);
             return;
         };
-        let target = self.projection.dragged().cloned().or_else(|| self.layers.selected_fill(doc.doc()));
+        // a locked layer's projection can't be edited: no gizmo for it
+        let selected = self.layers.selected_fill(doc.doc()).filter(|t| content_editable(doc.doc(), &t.layer));
+        let target = self.projection.dragged().cloned().or(selected);
         let Some(target) = target else {
             self.projection.cancel(Some(doc));
             return;

@@ -139,6 +139,25 @@ fn revealing_a_layer_selects_it_and_unfolds_its_folder() {
     assert_eq!(panel.selection.ids(), ["p7_2"], "an unknown layer changes nothing");
 }
 
+#[test]
+fn a_locked_layer_is_not_painted_into() {
+    let mut set = TextureSet::new("s", "Body", (8, 8)).with_channel(Channel::Roughness);
+    let image = TiledImage::new(8, 8, ChannelSpec::new(Channel::Roughness).layer_format()).expect("image");
+    let mut layer = Layer::new("p", "Paint", LayerKind::Paint(PaintContent::from_images(vec![(Channel::Roughness, image.clone())]))).with_mask(image);
+    set.layers.push(layer.clone());
+    let mut doc = Document::default();
+    doc.texture_sets.push(set.clone());
+    let mut panel = LayerPanel::default();
+    panel.reveal(&set, "p");
+    assert!(panel.paintable(&doc));
+    layer.lock = Some(materialcraft::paint::LayerLock::new("import", Vec::new()));
+    set.layers = vec![layer];
+    doc.texture_sets = vec![set];
+    assert!(!panel.paintable(&doc), "content");
+    panel.selection.part = Part::Mask;
+    assert!(!panel.paintable(&doc), "mask");
+}
+
 fn right_click(at: egui::Pos2) -> Vec<Vec<Event>> {
     vec![
         vec![Event::PointerMoved(at)],
