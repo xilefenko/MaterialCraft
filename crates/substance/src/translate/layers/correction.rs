@@ -146,19 +146,55 @@ fn corrected(
     Some((out, share))
 }
 
+/// What [`describe`] puts in front of the shares.
+const DESCRIBE_PREFIX: &str = "Painter's result where the layers differ: ";
+/// How [`percent`] writes a share that is above 0 but would round to 0.0 %.
+const TINY_PERCENT: &str = "<0.1%";
+
 /// `covers base color 12.5%, roughness 0%` for the lock and the report.
 pub fn describe(coverage: &[(Channel, f32)]) -> String {
     let parts: Vec<String> = coverage
         .iter()
         .map(|(c, share)| format!("{} {}", c.id().replace('_', " "), percent(*share)))
         .collect();
-    format!("Painter's result where the layers differ: {}", parts.join(", "))
+    format!("{DESCRIBE_PREFIX}{}", parts.join(", "))
+}
+
+/// The coverage a correction layer's lock states (see [`describe`]), back as shares per channel, so a saved
+/// document says how far its import is from editable without compositing again (`mcsub blockers`). The shares
+/// are as precise as the text (0.1 %; a share written `<0.1%` comes back as 0.05 %). `None` when `layer` is
+/// not a correction layer.
+pub fn coverage_of(layer: &Layer) -> Option<Vec<(Channel, f32)>> {
+    if layer.id != CORRECTION_ID {
+        return None;
+    }
+    let reason = layer.lock.as_ref()?.reasons.iter().find(|r| r.key == CORRECTION_KEY)?;
+    Some(parse_describe(&reason.text))
+}
+
+/// The inverse of [`describe`]; parts it can't read are left out.
+fn parse_describe(text: &str) -> Vec<(Channel, f32)> {
+    let Some(list) = text.strip_prefix(DESCRIBE_PREFIX) else {
+        return Vec::new();
+    };
+    list.split(", ")
+        .filter_map(|part| {
+            let (name, value) = part.rsplit_once(' ')?;
+            let channel = Channel::from_id(&name.replace(' ', "_"))?;
+            let share = if value == TINY_PERCENT {
+                0.0005
+            } else {
+                value.strip_suffix('%')?.parse::<f32>().ok()? / 100.0
+            };
+            Some((channel, share))
+        })
+        .collect()
 }
 
 fn percent(share: f32) -> String {
     let p = share * 100.0;
     if p > 0.0 && p < 0.1 {
-        "<0.1%".to_string()
+        TINY_PERCENT.to_string()
     } else {
         format!("{p:.1}%")
     }
@@ -230,6 +266,32 @@ mod tests {
                 .enumerate()
                 .all(|(i, v)| i == 6 || (v - 0.3).abs() < 1.0 / 255.0)
         );
+    }
+
+    #[test]
+    fn the_lock_text_reads_back_as_coverage() {
+        let coverage = vec![
+            (Channel::BaseColor, 0.125),
+            (Channel::AmbientOcclusion, 0.0),
+            (Channel::User(3), 0.0002),
+        ];
+        let mut layer = Layer::new(
+            CORRECTION_ID,
+            CORRECTION_NAME,
+            LayerKind::Paint(PaintContent::default()),
+        );
+        layer.lock = Some(LayerLock::new(
+            "test",
+            vec![LockReason::new(CORRECTION_KEY, describe(&coverage))],
+        ));
+        let back = coverage_of(&layer).unwrap();
+        assert_eq!(back.len(), 3);
+        for ((c, share), (bc, bshare)) in coverage.iter().zip(&back) {
+            assert_eq!(c, bc);
+            assert!((share - bshare).abs() < 0.001, "{c:?}: {share} vs {bshare}");
+        }
+        layer.id = "other".into();
+        assert!(coverage_of(&layer).is_none(), "only the correction layer has coverage");
     }
 
     #[test]

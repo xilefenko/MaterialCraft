@@ -28,8 +28,18 @@
 //!                                                  filters measurable against the texture cache), see
 //!                                                  `tools::verify_layers::isolate`; `--joint`: candidate masks
 //!                                                  solved together with the other unknown masks across channels
+//!     mcsub blockers <folder> [--plan choices.json] [--strokes keep|replay] [--jobs N] [--limit N] [--top N]
+//!                    [--projects] [--tsv] [--json <file>]
+//!                                                  import every .spp below the folder (nothing saved) and rank
+//!                                                  what locks layers over the corpus, by the layers supporting
+//!                                                  each blocker would unlock; totals by what unlocks them.
+//!                                                  Markdown on stdout (`--tsv`: tab-separated); `--projects`
+//!                                                  adds a row per project with the correction's coverage;
+//!                                                  `--json` also writes everything as JSON; `--limit` takes the
+//!                                                  first N projects, `--top` shows the first N blockers.
+//!                                                  `--jobs` defaults to 2: an import holds several GB
 //!
-//! `convert`, `report`, `maps`, `compare` and `verify-layers` take `--plan <choices.json>` or
+//! `convert`, `report`, `maps`, `compare`, `verify-layers` and `blockers` take `--plan <choices.json>` or
 //! `--procedurals keep|replace`: which Substance procedurals are replaced by MaterialCraft's generators
 //! (default: keep them all; `choices.json` as written by the import review, see `replacements::plan`).
 //! They also take `--library <dir>` (repeatable; asset library folders, e.g. the starter library) to embed the
@@ -50,6 +60,7 @@ use materialcraft_substance::inspect::{Corpus, CorpusTable, DocumentDump, Inspec
 use materialcraft_substance::project::{SppProject, paths};
 use materialcraft_substance::tools::accuracy::ReplacementAccuracy;
 use materialcraft_substance::tools::analyze::Analysis;
+use materialcraft_substance::tools::blockers::{self, CensusOptions, CensusText, RenderOptions};
 use materialcraft_substance::tools::material_match::report::MatchTable;
 use materialcraft_substance::tools::material_match::{MaterialMatches, ProjectPlanner, TrayMaterials};
 use materialcraft_substance::tools::model_text::ModelText;
@@ -68,7 +79,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::Arc;
 
-const USAGE: &str = "usage: mcsub inspect|tree|doc|model|corpus|analyze|library|convert|report|maps|compare|verify-layers|isolate … (see the source header for details)";
+const USAGE: &str = "usage: mcsub inspect|tree|doc|model|corpus|analyze|library|convert|report|maps|compare|verify-layers|isolate|blockers … (see the source header for details)";
 
 /// Parsed command line: positional words, `--flag`s and `--diff <dir>`.
 struct Args {
@@ -87,6 +98,12 @@ struct Args {
     materials: Option<String>,
     /// `--strokes keep|replay`.
     strokes: Option<String>,
+    /// `--limit N`: only the first N projects.
+    limit: Option<usize>,
+    /// `--top N`: only the first N rows of a ranking.
+    top: Option<usize>,
+    /// `--json <file>`: also write the result as JSON.
+    json: Option<PathBuf>,
 }
 
 impl Args {
@@ -102,6 +119,9 @@ impl Args {
             library: Vec::new(),
             materials: None,
             strokes: None,
+            limit: None,
+            top: None,
+            json: None,
         };
         let mut it = raw.into_iter();
         while let Some(a) = it.next() {
@@ -114,6 +134,9 @@ impl Args {
                 "--library" => args.library.extend(it.next().map(PathBuf::from)),
                 "--materials" => args.materials = it.next(),
                 "--strokes" => args.strokes = it.next(),
+                "--limit" => args.limit = it.next().and_then(|v| v.parse().ok()),
+                "--top" => args.top = it.next().and_then(|v| v.parse().ok()),
+                "--json" => args.json = it.next().map(PathBuf::from),
                 f if f.starts_with("--") => args.flags.push(a),
                 _ => args.words.push(a),
             }
@@ -177,6 +200,10 @@ impl Args {
         }
     }
 }
+
+/// Default `--jobs` for `mcsub blockers`: importing a big project holds several GB, and the pool's estimate of
+/// twice the file size leaves out the correction's composites.
+const BLOCKERS_JOBS: usize = 2;
 
 fn progress_line(fraction: f32, message: &str) {
     eprintln!("progress {fraction:.3} {message}");
@@ -363,6 +390,32 @@ fn run(args: Args) -> Result<(), String> {
                 println!("\n{CASE_HEADER}");
                 result.cases.iter().for_each(|line| println!("{line}"));
             }
+        }
+        ["blockers", root] => {
+            let planner = args.planner()?;
+            let options = CensusOptions {
+                planner: &planner,
+                replay: args.replay()?,
+                limit: args.limit,
+            };
+            let pool = CorpusPool::new(args.jobs.unwrap_or(BLOCKERS_JOBS).clamp(1, 64));
+            let census = blockers::census(Path::new(root), &options, pool, &|line| eprintln!("{line}"));
+            if let Some(path) = &args.json {
+                let text = blockers::census_json(&census).to_string_pretty();
+                std::fs::write(path, text).map_err(|e| format!("{}: {e}", path.display()))?;
+            }
+            let options = RenderOptions {
+                tsv: args.has("--tsv"),
+                projects: args.has("--projects"),
+                top: args.top,
+            };
+            print!(
+                "{}",
+                CensusText {
+                    census: &census,
+                    options
+                }
+            );
         }
         _ => return Err(USAGE.into()),
     }

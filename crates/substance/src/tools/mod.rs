@@ -4,6 +4,7 @@
 
 pub mod accuracy;
 pub mod analyze;
+pub mod blockers;
 pub mod compare;
 pub mod convert;
 pub mod library;
