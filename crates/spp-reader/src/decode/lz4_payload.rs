@@ -103,9 +103,9 @@ pub(super) fn take_payload<'a>(
     start: usize,
     size: usize,
 ) -> Result<&'a [u8], DecodeError> {
-    let end = start.checked_add(size).filter(|&end| end <= data.len());
-    match end {
-        Some(end) => Ok(&data[start..end]),
+    let payload = start.checked_add(size).and_then(|end| data.get(start..end));
+    match payload {
+        Some(payload) => Ok(payload),
         None => Err(DecodeError::invalid(
             record,
             format!(

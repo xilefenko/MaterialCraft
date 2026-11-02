@@ -45,7 +45,7 @@ impl Context {
 
     /// The `n`-th object from the innermost (0 = innermost).
     pub fn frame(&self, n: usize) -> Option<&Frame> {
-        self.frames.len().checked_sub(n + 1).map(|i| &self.frames[i])
+        self.frames.iter().rev().nth(n)
     }
 
     /// True if the innermost objects have these classes, innermost first.
