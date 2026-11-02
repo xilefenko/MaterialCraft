@@ -22,7 +22,10 @@ use super::set_surface::SurfaceSource;
 use super::verdict::{LayerNote, MaskFailure, StackVerdict};
 use crate::model::{LayerKind as PainterKind, PainterLayer};
 use crate::translate::replacements::ProceduralPlan;
-use materialcraft::paint::{Channel, Layer, LayerKind};
+use materialcraft::paint::{Channel, Layer, LayerKind, LayerLock};
+
+/// What locked an imported layer ([`LayerLock::source`]).
+pub const LOCK_SOURCE: &str = "Substance 3D Painter import";
 use std::collections::BTreeSet;
 
 /// What a folder passes down to its children: visibility, its path, and per channel the status of its own
@@ -175,6 +178,8 @@ impl StackBuilder<'_> {
                 (mapped.base, mapped.effects, written)
             }
         };
+        // Not computable: what we hold of it is not what Painter shows, and editing it would build on a wrong start.
+        let lock = (!note.is_computable()).then(|| LayerLock::new(LOCK_SOURCE, note.reasons().to_vec()));
         if !note.is_exact() {
             v.note(LayerNote {
                 path: path.clone(),
@@ -185,6 +190,7 @@ impl StackBuilder<'_> {
         let mut layer = Layer::new(unique_id(l.uid, &mut ids.layers), l.name.clone(), kind);
         layer.effects = effects;
         layer.visible = l.visible;
+        layer.lock = lock;
         if l.visible && !mask.status.is_computable() {
             v.mask_failures.push(MaskFailure {
                 id: layer.id.clone(),

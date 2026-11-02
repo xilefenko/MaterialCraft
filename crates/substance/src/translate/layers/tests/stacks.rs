@@ -125,6 +125,12 @@ fn uncomputable_layers_are_kept_with_reasons_and_hidden_ones_do_not_count() {
     assert!(stack.verdict.channel(Channel::Height).is_exact());
     assert_eq!(stack.verdict.layers[0].path, "Rust");
     assert!(stack.layers[1].blend_for(Channel::Roughness).is_some(), "blending kept");
+    let lock = stack.layers[1]
+        .lock
+        .as_ref()
+        .expect("a layer that can't be computed is locked");
+    assert_eq!(lock.reasons, ["procedural fill \"rust\""]);
+    assert!(stack.layers[0].lock.is_none(), "an exact layer stays editable");
     assert_eq!(
         StackStrategy::choose(&stack.verdict, true, &agrees()),
         StackStrategy::PainterResultOnTop
@@ -155,6 +161,10 @@ fn guessed_modes_are_approximated_and_recorded() {
         [2, 11]
     );
     assert_eq!(stack.verdict.layers.len(), 1);
+    assert!(
+        stack.layers.iter().all(|l| l.lock.is_none()),
+        "approximated layers stay editable"
+    );
 }
 
 #[test]
