@@ -7,7 +7,7 @@
 //! `commonParameters`/`detailParameters`, `definitions[]` = one `BakingDefinition { usage, enabled,
 //! parameters }` per baker), where parameters are references into `tweakLists[]` (`BakingTweakList { bakerId,
 //! tweaks[] }`, each tweak `DataTweak* { identifier, value }`). `materialTemplate` holds the same inline.
-//! Older files (format 12, Painter 2020) differ; [`reader`] reads both.
+//! Older files (format 12, Painter 2020) differ; the `reader` module reads both.
 
 mod reader;
 

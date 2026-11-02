@@ -14,7 +14,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mesh = AssbinGeometry::parse(&project.read(paths::SCENE)?)?;
     println!("{} mesh parts, materials {:?}", mesh.parts.len(), mesh.materials);
     let (document, report) = project.model()?;
-    println!("document format {}, {} classes kept raw", document.format_version, report.raw_classes().len());
+    println!(
+        "document format {}, {} classes kept raw",
+        document.format_version,
+        report.raw_classes().len()
+    );
     for set in &document.texture_sets {
         println!("texture set \"{}\" ({} channels)", set.name, set.channels.len());
         print_layers(&set.layers, 1);
@@ -33,7 +37,12 @@ fn print_layers(layers: &[PainterLayer], depth: usize) {
         };
         let mask = if layer.mask.is_some() { ", masked" } else { "" };
         let hidden = if layer.visible { "" } else { ", hidden" };
-        println!("{}{} [{kind}{mask}{hidden}] {} effects", "  ".repeat(depth), layer.name, layer.content.len());
+        println!(
+            "{}{} [{kind}{mask}{hidden}] {} effects",
+            "  ".repeat(depth),
+            layer.name,
+            layer.content.len()
+        );
         if let LayerKind::Group(children) = &layer.kind {
             print_layers(children, depth + 1);
         }

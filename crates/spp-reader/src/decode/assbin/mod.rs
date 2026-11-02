@@ -1,6 +1,6 @@
 //! `/paint/scene.assbin`: the project mesh as an Assimp binary dump.
 //!
-//! Painter writes its own variant of Assimp's format (see [`block`] and [`scene`]).
+//! Painter writes its own variant of Assimp's format (see the `block` and `scene` modules).
 //! [`AssbinScene`] is the cheap summary (counts and names); [`AssbinGeometry`] decodes everything.
 
 mod block;

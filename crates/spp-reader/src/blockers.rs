@@ -2,7 +2,7 @@
 //!
 //! Every part of a layer that isn't computable names its blocker, so an import can say exactly what keeps each
 //! layer locked, a corpus can be ranked by what blocks the most (`mcsub blockers`), and a locked layer knows which
-//! keys would unlock it once support for them is added ([`super::catalog`]). The key is stable across imports and
+//! keys would unlock it once support for them is added (an importer's own support catalog decides which can be). The key is stable across imports and
 //! projects; the text is for people and keeps the role it was met in (a mask generator, a procedural fill …).
 //!
 //! | Kind | Key | What blocks |
