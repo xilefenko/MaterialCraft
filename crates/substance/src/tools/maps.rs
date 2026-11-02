@@ -1,8 +1,13 @@
-//! `mcsub maps`: the final maps of every texture set of an imported document, as PNGs for visual checks.
+//! `mcsub maps`: the final maps of every texture set of an imported document, as PNGs for visual checks, composited
+//! as the editor composites them (generators, filters, fills on the set's surface; material fills are left out).
 
 use super::png_out::PngMap;
 use materialcraft::generators;
-use materialcraft::paint::{BakedKind, Channel, Document, MaterialMaps, NO_FILL_CONTEXT, OutputOptions};
+use materialcraft::mesh::{SurfaceKey, SurfaceMap};
+use materialcraft::paint::{
+    BakedKind, Channel, Document, FillContext, MaterialMaps, NoFillSources, OutputOptions, TextureSet,
+};
+use materialcraft::projection::SceneFrame;
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -23,9 +28,16 @@ pub const MAP_CHANNELS: &[(Channel, PngMap)] = &[
 pub fn write_maps(doc: &Document, dir: &Path, progress: &mut dyn FnMut(&str)) -> io::Result<Vec<PathBuf>> {
     std::fs::create_dir_all(dir)?;
     let mut written = Vec::new();
+    let frame = SceneFrame::of_mesh(&doc.mesh);
     for set in &doc.texture_sets {
         progress(&set.name);
-        let maps = MaterialMaps::build_with(set, &OutputOptions::default(), generators::builtin(), &NO_FILL_CONTEXT);
+        // Fills laid on as the editor lays them (polygon fills, volume projections); material fills are left out.
+        let surface = surface_map(doc, set);
+        let fills = match &surface {
+            Some(s) => FillContext::with_sources(&NoFillSources).with_surface(s, frame),
+            None => FillContext::with_sources(&NoFillSources),
+        };
+        let maps = MaterialMaps::build_with(set, &OutputOptions::default(), generators::builtin(), &fills);
         for (channel, png) in MAP_CHANNELS {
             let baked = match channel {
                 Channel::AmbientOcclusion => set.baked(&BakedKind::AmbientOcclusion).is_some(),
@@ -50,6 +62,23 @@ pub fn write_maps(doc: &Document, dir: &Path, progress: &mut dyn FnMut(&str)) ->
         }
     }
     Ok(written)
+}
+
+/// The set's surface map at its resolution (as the editor builds it), when the set has fills that need one.
+fn surface_map(doc: &Document, set: &TextureSet) -> Option<SurfaceMap> {
+    if !set.needs_surface() {
+        return None;
+    }
+    let (width, height) = set.resolution;
+    let key = SurfaceKey {
+        material: set.material_slot,
+        uv_set: set.uv_set,
+        width,
+        height,
+        gutter: 0,
+        mesh_revision: 0,
+    };
+    SurfaceMap::build(&doc.mesh, key).ok()
 }
 
 /// A file-name-safe version of a set name (path separators and control characters replaced).
