@@ -18,6 +18,7 @@ mod instance_list;
 pub mod instantiate_dialog;
 mod list;
 mod lock_icon;
+pub mod lock_text;
 mod menus;
 mod row_ui;
 pub mod rows;
