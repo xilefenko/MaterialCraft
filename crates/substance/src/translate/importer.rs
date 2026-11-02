@@ -1,5 +1,6 @@
 //! [`import_spp`]: the translate stage's façade. Opens a project, binds texture sets, builds each one and keeps
-//! the untranslated parts; the report goes into [`Document::import_report`].
+//! the untranslated parts; the report goes into [`Document::import_report`], the source and the options into
+//! [`Document::import_origin`] (see [`super::origin`]).
 
 use super::bake_settings::ProjectBaking;
 use super::baked_maps::BakedMaps;
@@ -12,6 +13,7 @@ use super::layers::replay::ReplayChoice;
 use super::layers::strokes::{StrokeCount, report_unimported_strokes};
 use super::layers::{BlendTable, LayerImport, ProjectImages, ProjectionTable};
 use super::normal_conventions::NormalConventions;
+use super::origin::{self, ImportOptions};
 use super::replacements::ProceduralPlan;
 use super::replacements::materials::MaterialCount;
 use super::report::Reporter;
@@ -128,6 +130,19 @@ impl Importer {
         self
     }
 
+    /// Builder: the plan and replay choice of `options` (e.g. a document's stored origin).
+    pub fn with_options(self, options: ImportOptions) -> Importer {
+        self.with_plan(options.plan).with_replay(options.replay)
+    }
+
+    /// The options this import runs with.
+    pub fn options(&self) -> ImportOptions {
+        ImportOptions {
+            plan: self.plan.clone(),
+            replay: self.replay,
+        }
+    }
+
     /// Builds the document; `cancel` is asked between stages, per texture set and per image.
     pub fn run(&self, progress: &mut dyn FnMut(f32, &str), cancel: Cancel<'_>) -> Result<Document, ImportError> {
         let mut report = Reporter::new(self.source_label());
@@ -228,6 +243,7 @@ impl Importer {
             report.add("document check", Fidelity::Approximated, problem.to_string());
         }
         doc.import_report = Some(report.finish());
+        doc.import_origin = Some(origin::origin(self.project.path(), &self.options()));
         progress(1.0, "imported");
         Ok(doc)
     }

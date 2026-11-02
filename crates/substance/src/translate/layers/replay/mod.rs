@@ -53,6 +53,24 @@ pub enum ReplayChoice {
     Keep,
 }
 
+impl ReplayChoice {
+    /// The word `mcsub --strokes` and a document's import origin use.
+    pub fn id(self) -> &'static str {
+        match self {
+            ReplayChoice::Replay => "replay",
+            ReplayChoice::Keep => "keep",
+        }
+    }
+
+    pub fn from_id(id: &str) -> Option<ReplayChoice> {
+        match id {
+            "replay" => Some(ReplayChoice::Replay),
+            "keep" => Some(ReplayChoice::Keep),
+            _ => None,
+        }
+    }
+}
+
 /// Replayed paint: its pixels and what did not map.
 #[derive(Clone)]
 pub struct Replayed<T> {
