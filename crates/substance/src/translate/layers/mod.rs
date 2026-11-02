@@ -11,6 +11,7 @@
 //! - [`cache_score`] and [`cache_agreement`]: a fully computable stack measured against Painter's cache, on
 //!   the texels of the mesh ([`island_texels`]).
 //! - [`strategy`]: the per-set decision between the real stack and Painter's flattened result.
+//! - [`correction`]: Painter's flattened result only on the texels the imported layers don't reproduce.
 //! - [`strokes`]: Painter's brush strokes → stroke records next to the paint pixels.
 //! - [`replay`]: those strokes painted again by our brush pipeline (painted masks become real paint).
 //! - [`decal`]: Painter's polygon-fill hits resolved on the set's mesh into picked triangles.
@@ -26,6 +27,7 @@ pub mod cache_score;
 pub mod channels;
 pub mod computability;
 pub mod content;
+pub mod correction;
 pub mod decal;
 pub mod effect_data;
 pub mod effect_map;

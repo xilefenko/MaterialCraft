@@ -105,7 +105,7 @@ fn generator_masks_the_plan_replaces_become_ours() {
     assert!(status.is_exact_or_replaced() && !status.is_exact(), "{status:?}");
     let strategy = StackStrategy::choose(&stack.verdict, true, &CacheAgreement::default());
     assert_eq!(strategy, StackStrategy::Replacements);
-    assert!(!strategy.shows_painter_result());
+    assert!(!strategy.corrects());
 }
 
 /// One 8×8 RGBA8 image whose left half is white.

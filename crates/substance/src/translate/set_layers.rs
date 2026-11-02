@@ -5,16 +5,19 @@
 use super::channel_table::painter_default;
 use super::layers::cache_agreement::CacheAgreement;
 use super::layers::cache_agreement::Reference;
+use super::layers::correction::{CORRECTION_NAME, Correction, describe};
 use super::layers::decal::geometry::SetGeometry;
 use super::layers::island_texels::IslandTexels;
 use super::layers::report::{report_cache_disagreement, report_hidden_masks, report_stack};
+use super::layers::stack_builder::LOCK_SOURCE;
 use super::layers::strokes::{StrokeCount, report_strokes};
 use super::layers::{LayerImport, LazySurface, PAINTER_RESULT_NAME, SetChannels, StackParts, StackStrategy};
 use super::report::Reporter;
 use super::texture_sets::SetSource;
 use crate::model::{PainterDocument, PainterTextureSet};
 use materialcraft::mesh::{FaceGroups, Mesh, SurfaceKey, SurfaceMap};
-use materialcraft::paint::{BlendMode, Fidelity, Fill, Layer, LayerKind, TextureSet};
+use materialcraft::paint::{BlendMode, Fidelity, Fill, FillContext, Layer, LayerKind, NoFillSources, TextureSet};
+use materialcraft::projection::SceneFrame;
 
 pub const PAINTER_RESULT_ID: &str = "painter-result";
 pub const DEFAULTS_LAYER_ID: &str = "painter-defaults";
@@ -25,8 +28,6 @@ pub struct Flattened {
     pub layer: Option<Layer>,
     /// No texel of any cached channel has coverage below 1 (and there is at least one channel).
     pub fully_covered: bool,
-    /// Fully covered and every declared channel has a cache image.
-    pub complete: bool,
 }
 
 pub struct SetLayers<'a> {
@@ -58,16 +59,14 @@ impl SetLayers<'_> {
                     .import
                     .import_on(painter, &channels, set.resolution, Some(&geometry), Some(&surface));
                 let defaults = defaults_layer(set);
+                let islands = IslandTexels::rasterise(mesh, &[set.material_slot], set.uv_set, set.resolution);
+                let picks = uses_picks(&stack.layers).then(|| surface_map(mesh, set)).flatten();
+                let reference = Reference {
+                    islands: islands.as_ref(),
+                    surface: picks.as_ref(),
+                };
                 let agreement = match (&flattened.layer, stack.verdict.all_exact()) {
-                    (Some(result), true) => {
-                        let islands = IslandTexels::rasterise(mesh, &[set.material_slot], set.uv_set, set.resolution);
-                        let surface = uses_picks(&stack.layers).then(|| surface_map(mesh, set)).flatten();
-                        let reference = Reference {
-                            islands: islands.as_ref(),
-                            surface: surface.as_ref(),
-                        };
-                        CacheAgreement::measure(set, &defaults, &stack.layers, result, reference)
-                    }
+                    (Some(result), true) => CacheAgreement::measure(set, &defaults, &stack.layers, result, reference),
                     _ => CacheAgreement::default(),
                 };
                 let strategy = StackStrategy::choose(&stack.verdict, flattened.layer.is_some(), &agreement);
@@ -80,17 +79,23 @@ impl SetLayers<'_> {
                     &stack.replayed,
                 );
                 report_cache_disagreement(report, &name, &agreement, &channels);
-                if !strategy.shows_painter_result() {
-                    report_hidden_masks(report, &name, &stack.verdict.mask_failures);
-                }
+                report_hidden_masks(report, &name, &stack.verdict.mask_failures);
                 let parts = StackParts {
-                    hide_unless_covered: stack.verdict.mask_failures.iter().map(|f| f.id.clone()).collect(),
+                    uncomputable_masks: stack.verdict.mask_failures.iter().map(|f| f.id.clone()).collect(),
                     imported: stack.layers,
                     painter_result: flattened.layer,
                     defaults,
-                    result_complete: flattened.complete,
                 };
                 set.layers = strategy.assemble(parts, &channels);
+                if strategy.corrects() {
+                    // Every fill laid on as the editor lays it: the surface map in the scene's frame.
+                    let surface = surface_map(mesh, set);
+                    let fills = match &surface {
+                        Some(s) => FillContext::with_sources(&NoFillSources).with_surface(s, SceneFrame::of_mesh(mesh)),
+                        None => FillContext::with_sources(&NoFillSources),
+                    };
+                    add_correction(set, &fills, islands.as_ref(), &name, report);
+                }
             }
             None => {
                 if !flattened.fully_covered {
@@ -114,6 +119,35 @@ impl SetLayers<'_> {
         let uid = source.record.scene_uid.filter(|_| source.in_document)?;
         self.document?.texture_set(uid)
     }
+}
+
+/// Puts the correction layer ([`Correction`]) below the reference on top of `set.layers` and reports how much it
+/// covers.
+fn add_correction(
+    set: &mut TextureSet,
+    fills: &FillContext,
+    islands: Option<&IslandTexels>,
+    name: &str,
+    report: &mut Reporter,
+) {
+    let Some(result) = set.layers.last().filter(|l| l.id == PAINTER_RESULT_ID) else {
+        return;
+    };
+    let Some(correction) = Correction::build(set, result, fills, islands, LOCK_SOURCE) else {
+        return;
+    };
+    let fidelity = if correction.is_empty() {
+        Fidelity::Exact
+    } else {
+        Fidelity::Baked
+    };
+    report.add(
+        format!("texture set \"{name}\" / {CORRECTION_NAME}"),
+        fidelity,
+        describe(&correction.coverage),
+    );
+    let at = set.layers.len() - 1;
+    set.layers.insert(at, correction.layer);
 }
 
 /// True if a layer (or a folder's child) has a polygon fill, which needs the surface map to composite.

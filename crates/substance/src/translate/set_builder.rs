@@ -45,11 +45,9 @@ impl SetBuilder<'_> {
         set.material_slot = source.slot;
         declare_channels(&mut set, source, &images, report);
         let fully_covered = !images.is_empty() && images.iter().all(|(_, i)| i.fully_covered);
-        let complete = fully_covered && set.channels.iter().all(|s| images.iter().any(|(c, _)| *c == s.channel));
         let flattened = Flattened {
             layer: imported_layer(&set, images, report),
             fully_covered,
-            complete,
         };
         // Image loads inside the layer stack fail fast once cancelled; this check ends the import.
         self.cancel.check()?;

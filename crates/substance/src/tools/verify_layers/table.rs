@@ -27,7 +27,7 @@ fn strategy_name(s: StackStrategy) -> &'static str {
     match s {
         StackStrategy::RealStack => "real stack",
         StackStrategy::Replacements => "real stack with replacements",
-        StackStrategy::PainterResultOnTop => "Painter result on top",
+        StackStrategy::PainterResultOnTop => "Painter correction on top",
         StackStrategy::CacheDisagrees => "Painter result on top (cache disagrees)",
         StackStrategy::BestEffort => "best effort",
     }
