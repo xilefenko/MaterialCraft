@@ -72,7 +72,9 @@ impl Reach {
             Create { set, above, .. } | PasteInstance { set, above, .. } => (set.clone(), above.iter().cloned().collect()),
             Duplicate { set, ids } | Delete { set, ids } | Group { set, ids } => (set.clone(), ids.clone()),
             Move { set, ids, to, .. } => (set.clone(), ids.iter().cloned().chain(to.parent.clone()).collect()),
-            Rename(r, _) | SetVisible(r, _) | AddMask(r, _) | RemoveMask(r) | SetMaskEnabled(r, _) | InvertMask(r) | SetGeometryMask(r, _) => one(r),
+            Rename(r, _) | SetVisible(r, _) | Unlock(r) | AddMask(r, _) | RemoveMask(r) | SetMaskEnabled(r, _) | InvertMask(r) | SetGeometryMask(r, _) => {
+                one(r)
+            }
             SetOpacity { layer, .. } | SetBlendMode { layer, .. } | AddEffect { layer, .. } | RemoveEffect { layer, .. } | SetEffectEnabled { layer, .. } => {
                 one(layer)
             }

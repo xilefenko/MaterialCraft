@@ -35,6 +35,8 @@ pub enum LayerEvent {
     },
     Rename(LayerRef, String),
     SetVisible(LayerRef, bool),
+    /// Remove the layer's lock so its content can be edited (one history step; Undo locks it again).
+    Unlock(LayerRef),
     /// The opacity of the layer's entry for `channel`; events with the same key are one step (a drag).
     SetOpacity {
         layer: LayerRef,

@@ -7,7 +7,7 @@ use materialcraft::generators;
 use materialcraft::paint::edit::ops::{MaskStart, NewEffect};
 use materialcraft::paint::edit::{LayerRef, StackId};
 use materialcraft::paint::instance::InstanceRole;
-use materialcraft::paint::{GeometryMask, Layer};
+use materialcraft::paint::{GeometryMask, Layer, LayerLock};
 
 /// What the context menu acts on.
 pub struct MenuTarget<'a> {
@@ -66,6 +66,10 @@ pub fn context(ui: &mut Ui, t: &MenuTarget, events: &mut Vec<LayerEvent>) -> Opt
     if matches!(t.role, InstanceRole::Instance | InstanceRole::Broken) {
         return local; // its mask, geometry mask and effects are its source's (IN-02)
     }
+    if let Some(lock) = &t.layer.lock {
+        locked(ui, t, lock, events);
+        return local; // its content, mask and effects can't be edited until it is unlocked
+    }
     ui.separator();
     match &t.layer.mask {
         None => add_mask(ui, &t.r, events),
@@ -101,6 +105,28 @@ pub fn context(ui: &mut Ui, t: &MenuTarget, events: &mut Vec<LayerEvent>) -> Opt
     geometry_mask(ui, t, events);
     add_effect(ui, "Add effect", &t.r, StackId::Content, events);
     local
+}
+
+/// The items of a locked layer: why it is locked, the mask switch and view, and unlocking.
+fn locked(ui: &mut Ui, t: &MenuTarget, lock: &LayerLock, events: &mut Vec<LayerEvent>) {
+    ui.separator();
+    ui.weak(lock.summary());
+    if let Some(mask) = &t.layer.mask {
+        if ui.button(if mask.enabled { "Switch the mask off" } else { "Switch the mask on" }).clicked() {
+            events.push(LayerEvent::SetMaskEnabled(t.r.clone(), !mask.enabled));
+            ui.close();
+        }
+        let isolate = if t.isolated { "Show the material again" } else { "Show only this mask (Alt+click)" };
+        if ui.button(isolate).clicked() {
+            events.push(LayerEvent::Isolate(if t.isolated { None } else { Some(t.r.clone()) }));
+            ui.close();
+        }
+    }
+    let tip = "Edit the layer anyway. Its content was kept as imported and may not match the source after edits; Undo locks it again";
+    if ui.button("Unlock for editing").on_hover_text(tip).clicked() {
+        events.push(LayerEvent::Unlock(t.r.clone()));
+        ui.close();
+    }
 }
 
 /// Copy, paste as instance, instantiate across texture sets and go to source (IN-05, IN-07, IN-10).

@@ -43,7 +43,7 @@ fn set_of(ev: &LayerEvent) -> Option<&str> {
     use LayerEvent::*;
     Some(match ev {
         Create { set, .. } | Duplicate { set, .. } | Delete { set, .. } | Group { set, .. } | Move { set, .. } => set,
-        Rename(r, _) | SetVisible(r, _) | AddMask(r, _) | RemoveMask(r) | SetMaskEnabled(r, _) | InvertMask(r) | SetGeometryMask(r, _) => &r.set,
+        Rename(r, _) | SetVisible(r, _) | Unlock(r) | AddMask(r, _) | RemoveMask(r) | SetMaskEnabled(r, _) | InvertMask(r) | SetGeometryMask(r, _) => &r.set,
         SetOpacity { layer, .. } | SetBlendMode { layer, .. } | AddEffect { layer, .. } | RemoveEffect { layer, .. } | SetEffectEnabled { layer, .. } => {
             &layer.set
         }
@@ -68,6 +68,7 @@ fn run(doc: &mut OpenDocument, ev: LayerEvent) -> Result<Option<Vec<String>>, Ed
         SetVisible(r, v) => {
             none(doc.edit(if v { "Show layer" } else { "Hide layer" }, None, |tx| tx.apply(Edit::SetLayer { layer: r, property: LayerProperty::Visible(v) })))
         }
+        Unlock(r) => none(doc.edit("Unlock layer", None, |tx| tx.apply(Edit::SetLayer { layer: r, property: LayerProperty::Lock(None) }))),
         SetOpacity { layer, channel, opacity, key } => none(doc.edit("Opacity", Some(key), |tx| set_blend(tx, &layer, channel, None, Some(opacity)))),
         SetBlendMode { layer, channel, mode } => none(doc.edit("Blend mode", None, |tx| set_blend(tx, &layer, channel, Some(mode), None))),
         AddEffect { layer, stack, what } => none(doc.edit("Add effect", None, |tx| {

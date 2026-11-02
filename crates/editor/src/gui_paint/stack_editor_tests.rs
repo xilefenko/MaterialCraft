@@ -126,3 +126,23 @@ fn each_geometry_mask_change_is_its_own_step() {
     assert_eq!(d.doc().texture_sets[0].layer("top").unwrap().geometry_mask, masks[1]);
     assert_eq!(apply(&mut d, LayerEvent::EditGeometryMask(Some(lr("top")))).unwrap(), Applied::default(), "edit mode is view state");
 }
+
+#[test]
+fn a_locked_layer_toggles_refuses_content_changes_and_unlocks_in_one_undoable_step() {
+    let mut doc = open().doc().clone();
+    if let Some(l) = doc.texture_sets[0].layer_mut("a") {
+        l.lock = Some(materialcraft::paint::LayerLock::new("test import", vec!["procedural".into()]));
+    }
+    let mut d = OpenDocument::new(doc, PathBuf::from("test.mcpaint"), None);
+    apply(&mut d, LayerEvent::SetVisible(lr("a"), false)).expect("a locked layer can be hidden");
+    let before = d.doc().clone();
+    let refused = apply(&mut d, LayerEvent::AddMask(lr("a"), MaskStart::Black));
+    assert!(matches!(refused, Err(EditError::Locked { .. })), "{refused:?}");
+    assert_eq!(*d.doc(), before, "a refused change leaves the document as it was");
+    apply(&mut d, LayerEvent::Unlock(lr("a"))).unwrap();
+    assert!(d.doc().texture_sets[0].layer("a").is_some_and(|l| l.lock.is_none()));
+    apply(&mut d, LayerEvent::AddMask(lr("a"), MaskStart::Black)).expect("unlocked, the content can change");
+    d.undo().unwrap();
+    d.undo().unwrap();
+    assert_eq!(*d.doc(), before, "Undo locks it again");
+}

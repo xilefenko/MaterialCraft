@@ -1,9 +1,10 @@
 //! Drawing one row of the layer list and reporting what was clicked in it. A layer row is: eye, indent,
-//! fold arrow (folders), content thumbnail, mask thumbnail (if any), name, kind, effects and geometry mask icon,
+//! fold arrow (folders), content thumbnail (with the instance and lock badges), mask thumbnail (if any), name, kind, effects and geometry mask icon,
 //! and on the right the view channel's blend mode and opacity (LS-08). An effect row is its kind, label and an on/off box.
 
 use super::geometry_icon;
 use super::instance_icon;
+use super::lock_icon;
 use super::rows::{EFFECT_ROW, INDENT, LAYER_ROW};
 use super::selection::Part;
 use super::thumbnails::Pair;
@@ -112,6 +113,9 @@ pub fn layer_row(ui: &mut Ui, rect: Rect, look: LayerLook) -> LayerRowOut {
     }
     whole |= content_r;
     if let Some(badge) = instance_icon::show(ui, id.with("instance"), content, look.instance) {
+        whole |= badge;
+    }
+    if let Some(badge) = lock_icon::show(ui, id.with("lock"), content, l.lock.as_ref()) {
         whole |= badge;
     }
     x += THUMB + GAP;
