@@ -1,7 +1,7 @@
 //! Pixel edits as tile swaps: putting shared tiles into an image, writing a region, and capturing what a
 //! direct paint operation changed.
 
-use super::tree::layer_mut;
+use super::tree::content_layer_mut;
 use super::{Edit, EditError, ImageRef};
 use crate::paint::doc::Document;
 use crate::paint::image::{ImageError, Rect, TILE_SIZE, Tile, TiledImage};
@@ -17,7 +17,7 @@ pub struct TileSwap {
 
 fn image_mut<'a>(doc: &'a mut Document, r: &ImageRef) -> Result<&'a mut TiledImage, EditError> {
     let no_image = || EditError::NoImage { set: r.layer.set.clone(), layer: r.layer.layer.clone(), image: r.image };
-    layer_mut(doc, &r.layer)?.image_mut(r.image).ok_or_else(no_image)
+    content_layer_mut(doc, &r.layer)?.image_mut(r.image).ok_or_else(no_image)
 }
 
 fn image<'a>(doc: &'a Document, r: &ImageRef) -> Result<&'a TiledImage, EditError> {

@@ -3,6 +3,8 @@
 //! `asset` (since 0.6) names the asset a smart-material folder was made from. `see_through: true` (since 0.11, written
 //! only when set) marks see-through paint content, whose images are its strokes replayed on the composite below.
 //! Kind `instance` (since 0.15) carries `instance_of: {"set", "layer"}`, the layer it takes its parameters from.
+//! `lock: {"source", "reasons"}` (since 0.18, written only when set) marks a layer whose content is locked
+//! ([`crate::paint::lock`]).
 
 use super::extras::loc;
 use super::fields::{Obj, as_f32, num, num4};
@@ -13,7 +15,8 @@ use crate::paint::format::slot::ImageSlot;
 use crate::paint::format::strokes::StrokeSlot;
 use crate::paint::stroke::StrokeOwner;
 use crate::paint::{
-    Channel, ChannelSpec, ColorSpace, Fill, FillImageRef, FillSource, ImageFill, InstanceLink, Layer, LayerImage, LayerKind, PaintContent, TextureFill,
+    Channel, ChannelSpec, ColorSpace, Fill, FillImageRef, FillSource, ImageFill, InstanceLink, Layer, LayerImage, LayerKind, LayerLock, PaintContent,
+    TextureFill,
 };
 use crate::projection::Projection;
 
@@ -60,6 +63,9 @@ fn write(l: &Layer, set: &SetScope, ctx: &WriteCtx) -> Value {
     if let Some(a) = &l.asset {
         v.insert("asset", a.as_str());
     }
+    if let Some(lock) = &l.lock {
+        v.insert("lock", write_lock(lock));
+    }
     match &l.kind {
         LayerKind::Paint(p) => {
             let mut images = Value::object();
@@ -91,6 +97,24 @@ fn write(l: &Layer, set: &SetScope, ctx: &WriteCtx) -> Value {
     }
     ctx.extras.inject(&here, &mut v);
     v
+}
+
+fn write_lock(lock: &LayerLock) -> Value {
+    let reasons: Vec<Value> = lock.reasons.iter().map(|r| Value::from(r.as_str())).collect();
+    Value::object().with("source", lock.source.as_str()).with("reasons", Value::Array(reasons))
+}
+
+fn read_lock(v: &Value, at: String) -> Result<LayerLock, FormatError> {
+    let mut o = Obj::new(v, at)?;
+    let source = o.str("source")?.to_string();
+    let path = o.path("reasons");
+    let reasons = o
+        .array("reasons")?
+        .iter()
+        .enumerate()
+        .map(|(i, r)| r.as_str().map(str::to_string).ok_or_else(|| FormatError::manifest(format!("{path}[{i}]"), "expected a string")))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(LayerLock::new(source, reasons))
 }
 
 /// Where a fill object sits: its layer, and the content effect it belongs to (`None`: the layer's own fill).
@@ -175,6 +199,9 @@ fn read(v: &Value, at: String, set: &SetScope, ctx: &mut ReadCtx) -> Result<Laye
         layer.geometry_mask = Some(geometry_mask::read(g, o.path("geometry_mask"), &format!("{here}/geometry_mask"), ctx)?);
     }
     layer.asset = o.opt_str("asset")?.map(str::to_string);
+    if let Some(lock) = o.opt("lock") {
+        layer.lock = Some(read_lock(lock, o.path("lock"))?);
+    }
     let kind = o.str("kind")?;
     layer.kind = match kind {
         "paint" => {

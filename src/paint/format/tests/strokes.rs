@@ -101,7 +101,7 @@ fn files_without_records_load_as_before() {
         if name != "document.json" {
             return Some(data);
         }
-        Some(String::from_utf8(data).unwrap().replace("\"format_version\": \"0.17\"", "\"format_version\": \"0.3\"").into_bytes())
+        Some(String::from_utf8(data).unwrap().replace("\"format_version\": \"0.18\"", "\"format_version\": \"0.3\"").into_bytes())
     });
     assert_eq!(manifest(&old)["format_version"].as_str(), Some("0.3"));
     let back = from_bytes(&old).unwrap();

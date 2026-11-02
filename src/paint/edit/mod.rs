@@ -52,6 +52,7 @@ use super::geometry_mask::GeometryMask;
 use super::height_normal::HeightFilter;
 use super::image::Rect;
 use super::layer::{ChannelBlend, Fill, Layer, LayerImage};
+use super::lock::LayerLock;
 use super::mask::Mask;
 use super::stroke::{Stroke, StrokeOwner};
 use super::texture_set::{BakedMap, TextureSet};
@@ -145,6 +146,8 @@ pub enum LayerProperty {
     GeometryMask(Option<GeometryMask>),
     /// The fill of a fill layer.
     Fill(Fill),
+    /// Locks the layer's content against edits or (with `None`) unlocks it (see [`crate::paint::lock`]).
+    Lock(Option<LayerLock>),
 }
 
 /// One reversible change to a [`Document`]. See the module docs.

@@ -49,7 +49,7 @@ use std::io::{Read, Seek, Write};
 use std::path::Path;
 
 /// Version written by [`save`]: `major.minor`. Readers reject a newer major version.
-pub const FORMAT_VERSION: &str = "0.17";
+pub const FORMAT_VERSION: &str = "0.18";
 
 /// Writes `doc` as a `.mcpaint` archive with default options (including a thumbnail).
 /// Same document, same bytes.

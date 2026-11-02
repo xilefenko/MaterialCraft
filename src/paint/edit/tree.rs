@@ -23,6 +23,16 @@ pub(super) fn own_layer_mut<'a>(doc: &'a mut Document, r: &LayerRef) -> Result<&
     Ok(l)
 }
 
+/// [`own_layer_mut`] for changing the layer's content (its base, effects, masks, pixels and strokes): also refused on a
+/// locked layer (see [`crate::paint::lock`]).
+pub(super) fn content_layer_mut<'a>(doc: &'a mut Document, r: &LayerRef) -> Result<&'a mut Layer, EditError> {
+    let l = own_layer_mut(doc, r)?;
+    if let Some(lock) = &l.lock {
+        return Err(EditError::Locked { set: r.set.clone(), layer: r.layer.clone(), why: lock.summary() });
+    }
+    Ok(l)
+}
+
 /// The first instance in the subtree of layer `r` that depends on itself.
 fn cycle_in(doc: &Document, r: &LayerRef) -> Option<String> {
     let set = doc.texture_set(&r.set)?;
@@ -130,8 +140,9 @@ pub(super) fn move_to(doc: &mut Document, r: LayerRef, to: LayerSlot) -> Result<
 
 pub(super) fn set_property(doc: &mut Document, r: LayerRef, property: LayerProperty) -> Result<Edit, EditError> {
     let l = match property {
-        LayerProperty::Name(_) | LayerProperty::Visible(_) => layer_mut(doc, &r)?,
-        _ => own_layer_mut(doc, &r)?,
+        LayerProperty::Name(_) | LayerProperty::Visible(_) | LayerProperty::Lock(_) => layer_mut(doc, &r)?,
+        LayerProperty::Opacity(_) | LayerProperty::Blend(_) | LayerProperty::MaskEnabled(_) => own_layer_mut(doc, &r)?,
+        LayerProperty::Mask(_) | LayerProperty::MaskInitial(_) | LayerProperty::GeometryMask(_) | LayerProperty::Fill(_) => content_layer_mut(doc, &r)?,
     };
     let old = match property {
         LayerProperty::Name(v) => LayerProperty::Name(replace(&mut l.name, v)),
@@ -148,6 +159,7 @@ pub(super) fn set_property(doc: &mut Document, r: LayerRef, property: LayerPrope
             LayerProperty::MaskInitial(replace(&mut mask.initial, v))
         }
         LayerProperty::GeometryMask(v) => LayerProperty::GeometryMask(replace(&mut l.geometry_mask, v)),
+        LayerProperty::Lock(v) => LayerProperty::Lock(replace(&mut l.lock, v)),
         LayerProperty::Fill(v) => match &mut l.kind {
             LayerKind::Fill(f) => LayerProperty::Fill(replace(f, v)),
             _ => return Err(EditError::WrongLayerKind { set: r.set.clone(), layer: r.layer.clone() }),

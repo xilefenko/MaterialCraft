@@ -9,6 +9,7 @@ mod effects;
 mod fixtures;
 mod fragments;
 mod instances;
+mod locks;
 mod manifest_errors;
 mod project;
 mod projections;

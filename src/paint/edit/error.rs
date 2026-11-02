@@ -59,6 +59,12 @@ pub enum EditError {
         set: String,
         layer: String,
     },
+    /// The layer's content is locked (see [`crate::paint::lock`]); `why` is the lock's summary. Unlock it first.
+    Locked {
+        set: String,
+        layer: String,
+        why: String,
+    },
     /// The change would make an instance depend on itself (an instance inside the folder it instances, IN-11).
     InstanceCycle {
         set: String,
@@ -87,6 +93,7 @@ impl fmt::Display for EditError {
             EditError::InstanceReadOnly { set, layer } => {
                 write!(f, "layer {layer:?} in {set:?} is an instance: change its source instead")
             }
+            EditError::Locked { set, layer, why } => write!(f, "layer {layer:?} in {set:?} is locked: {why}"),
             EditError::InstanceCycle { set, layer } => write!(f, "instance {layer:?} in {set:?} would depend on itself"),
             EditError::NotAccepted(why) => f.write_str(why),
         }

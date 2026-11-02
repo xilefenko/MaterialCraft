@@ -163,7 +163,11 @@ impl PaintTarget {
         if set.id != self.layer.set {
             return Err(BrushError::NotPaintable("the layer belongs to another texture set"));
         }
-        set.layer(&self.layer.layer).ok_or(BrushError::NotPaintable("the layer is gone"))
+        let layer = set.layer(&self.layer.layer).ok_or(BrushError::NotPaintable("the layer is gone"))?;
+        if layer.lock.is_some() {
+            return Err(BrushError::NotPaintable("the layer is locked: unlock it to paint on it"));
+        }
+        Ok(layer)
     }
 }
 

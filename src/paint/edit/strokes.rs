@@ -1,13 +1,13 @@
 //! Stroke-record edits: a painted stroke is appended to the record of the pixels it painted, so the record keeps
 //! describing every stroke behind them (imported strokes stay as they were, ours follow).
 
-use super::tree::layer_mut;
+use super::tree::content_layer_mut;
 use super::{Edit, EditError, LayerRef};
 use crate::paint::doc::Document;
 use crate::paint::stroke::{Stroke, StrokeData, StrokeOwner, StrokeRecord};
 
 fn slot<'a>(doc: &'a mut Document, r: &LayerRef, owner: StrokeOwner) -> Result<&'a mut Option<StrokeData>, EditError> {
-    layer_mut(doc, r)?.strokes_mut(owner).ok_or(EditError::NotAccepted("that layer has no paint pixels to record a stroke for"))
+    content_layer_mut(doc, r)?.strokes_mut(owner).ok_or(EditError::NotAccepted("that layer has no paint pixels to record a stroke for"))
 }
 
 pub(super) fn append(doc: &mut Document, layer: LayerRef, owner: StrokeOwner, stroke: Stroke) -> Result<Edit, EditError> {
@@ -97,6 +97,17 @@ mod tests {
         assert!(Edit::AppendStroke { layer: r.clone(), owner: StrokeOwner::Paint, stroke: Box::new(stroke(1)) }.apply(&mut d).is_err());
         assert!(Edit::AppendStroke { layer: r.clone(), owner: StrokeOwner::Mask { effect: 0 }, stroke: Box::new(stroke(1)) }.apply(&mut d).is_err());
         assert!(Edit::RemoveLastStroke { layer: r, owner: StrokeOwner::Paint, drop_record: false }.apply(&mut d).is_err());
+        assert_eq!(d, before);
+    }
+
+    #[test]
+    fn a_locked_layer_refuses_strokes() {
+        let mut d = doc();
+        d.texture_sets[0].layers[0].lock = Some(crate::paint::LayerLock::new("import", Vec::new()));
+        let r = LayerRef::new("s", "l");
+        let before = d.clone();
+        let refused = Edit::AppendStroke { layer: r, owner: StrokeOwner::Paint, stroke: Box::new(stroke(1)) }.apply(&mut d);
+        assert!(matches!(refused, Err(EditError::Locked { .. })), "{refused:?}");
         assert_eq!(d, before);
     }
 }

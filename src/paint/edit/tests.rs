@@ -187,3 +187,52 @@ fn absorb_keeps_the_oldest_state() {
     stroke.apply(&mut d).unwrap();
     assert_eq!(d, doc());
 }
+
+fn locked(d: &mut Document, id: &str) {
+    let lock = crate::paint::LayerLock::new("test import", vec!["procedural".into()]);
+    round_trip(d, Edit::SetLayer { layer: lr(id), property: LayerProperty::Lock(Some(lock)) });
+}
+
+fn refused_as_locked(d: &mut Document, edit: Edit) {
+    let before = d.clone();
+    match edit.clone().apply(d) {
+        Err(EditError::Locked { why, .. }) => assert!(why.contains("test import"), "{why}"),
+        other => panic!("{edit:?} on a locked layer: {other:?}"),
+    }
+    assert_eq!(*d, before, "{edit:?} left the document as it was");
+}
+
+#[test]
+fn a_locked_layer_refuses_content_edits() {
+    let mut d = doc();
+    round_trip(&mut d, Edit::SetLayer { layer: lr("a"), property: LayerProperty::Mask(Some(Mask::from_image(img()))) });
+    locked(&mut d, "a");
+    locked(&mut d, "f");
+    let px = Edit::WritePixels { image: roughness("a"), rect: Rect { x: 0, y: 0, w: 1, h: 1 }, pixels: vec![[1.0; 4]] };
+    refused_as_locked(&mut d, px);
+    refused_as_locked(&mut d, Edit::SwapTiles { image: roughness("a"), tiles: Vec::new() });
+    refused_as_locked(&mut d, Edit::SetLayer { layer: lr("a"), property: LayerProperty::Mask(None) });
+    refused_as_locked(&mut d, Edit::SetLayer { layer: lr("a"), property: LayerProperty::MaskInitial(0.5) });
+    refused_as_locked(&mut d, Edit::SetLayer { layer: lr("a"), property: LayerProperty::GeometryMask(None) });
+    refused_as_locked(&mut d, Edit::SetLayer { layer: lr("f"), property: LayerProperty::Fill(Fill::uniform(vec![])) });
+    refused_as_locked(&mut d, Edit::RemoveEffect { layer: lr("a"), stack: StackId::Content, index: 0 });
+    refused_as_locked(&mut d, Edit::MoveEffect { layer: lr("a"), stack: StackId::Mask, from: 0, to: 0 });
+}
+
+#[test]
+fn a_locked_layer_can_still_be_toggled_arranged_and_unlocked() {
+    let mut d = doc();
+    round_trip(&mut d, Edit::SetLayer { layer: lr("a"), property: LayerProperty::Mask(Some(Mask::from_image(img()))) });
+    locked(&mut d, "a");
+    round_trip(&mut d, Edit::SetLayer { layer: lr("a"), property: LayerProperty::Visible(false) });
+    round_trip(&mut d, Edit::SetLayer { layer: lr("a"), property: LayerProperty::Name("Imported".into()) });
+    round_trip(&mut d, Edit::SetLayer { layer: lr("a"), property: LayerProperty::Opacity(0.5) });
+    round_trip(&mut d, Edit::SetLayer { layer: lr("a"), property: LayerProperty::Blend(Vec::new()) });
+    round_trip(&mut d, Edit::SetLayer { layer: lr("a"), property: LayerProperty::MaskEnabled(false) });
+    round_trip(&mut d, Edit::MoveLayer { layer: lr("a"), to: LayerSlot::top(0) });
+    // Unlocking is an edit like any other; then the content can change again.
+    let relock = round_trip(&mut d, Edit::SetLayer { layer: lr("a"), property: LayerProperty::Lock(None) });
+    assert!(matches!(relock, Edit::SetLayer { property: LayerProperty::Lock(Some(_)), .. }));
+    round_trip(&mut d, Edit::WritePixels { image: roughness("a"), rect: Rect { x: 0, y: 0, w: 1, h: 1 }, pixels: vec![[1.0; 4]] });
+    round_trip(&mut d, Edit::RemoveLayer(lr("a")));
+}

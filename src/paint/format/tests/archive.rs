@@ -32,7 +32,7 @@ fn entries_and_methods() {
     assert_eq!(zip.find("document.json").unwrap().method(), Some(Method::Deflate));
 
     let text = String::from_utf8(zip.read("document.json").unwrap()).unwrap();
-    assert!(text.starts_with("{\n  \"format\": \"mcpaint\",\n  \"format_version\": \"0.17\",\n"));
+    assert!(text.starts_with("{\n  \"format\": \"mcpaint\",\n  \"format_version\": \"0.18\",\n"));
     assert!(text.contains("\n  \"mesh\": \"mesh/model.glb\",\n  \"height_filter\": \"sobel\",\n"));
     assert!(text.ends_with("}\n"));
     let root = json::parse(&text).unwrap();

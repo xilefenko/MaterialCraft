@@ -97,6 +97,7 @@ fn shallow(l: &Layer) -> Layer {
         kind: LayerKind::Group(Vec::new()),
         effects: l.effects.clone(),
         asset: l.asset.clone(),
+        lock: l.lock.clone(),
     }
 }
 

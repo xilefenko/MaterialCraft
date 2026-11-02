@@ -1,6 +1,6 @@
 //! Effect stack edits on a layer's content stack or its mask stack.
 
-use super::tree::own_layer_mut;
+use super::tree::content_layer_mut;
 use super::{Edit, EditError, LayerRef, StackEffect, StackId};
 use crate::paint::doc::Document;
 use crate::paint::effect::{ContentEffect, MaskEffect};
@@ -12,7 +12,7 @@ enum Stack<'a> {
 }
 
 fn stack<'a>(doc: &'a mut Document, r: &LayerRef, which: StackId) -> Result<Stack<'a>, EditError> {
-    let layer = own_layer_mut(doc, r)?;
+    let layer = content_layer_mut(doc, r)?;
     match which {
         StackId::Content => Ok(Stack::Content(&mut layer.effects)),
         StackId::Mask => match &mut layer.mask {

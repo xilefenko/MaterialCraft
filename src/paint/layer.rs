@@ -14,6 +14,7 @@ use super::fill_texture::TextureFill;
 use super::geometry_mask::GeometryMask;
 use super::image::TiledImage;
 use super::instance::InstanceLink;
+use super::lock::LayerLock;
 use super::mask::Mask;
 use super::stroke::StrokeData;
 use crate::projection::Projection;
@@ -163,6 +164,8 @@ pub struct Layer {
     /// reference such as `smart-materials/worn-paint.mcfrag`, also the key of the document's embedded copy, see
     /// [`crate::paint::embedded`]). `None` for layers made by hand.
     pub asset: Option<String>,
+    /// Set when the layer's content must not be edited (see [`super::lock`]); `None` for ordinary layers.
+    pub lock: Option<LayerLock>,
 }
 
 impl Layer {
@@ -170,7 +173,7 @@ impl Layer {
     /// share their tiles with the original.
     pub fn without_children(&self) -> Layer {
         // destructured in full, so a new field is not forgotten here
-        let Layer { id, name, visible, opacity, blend, mask, geometry_mask, kind, effects, asset } = self;
+        let Layer { id, name, visible, opacity, blend, mask, geometry_mask, kind, effects, asset, lock } = self;
         let kind = match kind {
             LayerKind::Group(_) => LayerKind::Group(Vec::new()),
             other => other.clone(),
@@ -186,13 +189,14 @@ impl Layer {
             kind,
             effects: effects.clone(),
             asset: asset.clone(),
+            lock: lock.clone(),
         }
     }
 
     /// True if the layers are equal apart from their children (two folders with different children are; a folder
     /// and another kind of layer are not).
     pub fn same_without_children(&self, other: &Layer) -> bool {
-        let Layer { id, name, visible, opacity, blend, mask, geometry_mask, kind, effects, asset } = self;
+        let Layer { id, name, visible, opacity, blend, mask, geometry_mask, kind, effects, asset, lock } = self;
         let kinds = match (kind, &other.kind) {
             (LayerKind::Group(_), LayerKind::Group(_)) => true,
             (a, b) => a == b,
@@ -207,6 +211,7 @@ impl Layer {
             && *geometry_mask == other.geometry_mask
             && *effects == other.effects
             && *asset == other.asset
+            && *lock == other.lock
     }
 }
 
@@ -235,6 +240,7 @@ impl Layer {
             kind,
             effects: Vec::new(),
             asset: None,
+            lock: None,
         }
     }
 
