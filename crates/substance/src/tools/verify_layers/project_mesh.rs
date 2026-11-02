@@ -1,7 +1,7 @@
 //! [`ProjectMesh`]: a project's mesh with the Painter material uid of each slot, so a texture set's texels on
 //! the mesh ([`IslandTexels`]) can be found for its cache score.
 
-use crate::decode::assbin::{AssbinGeometry, AssbinScene};
+use crate::decode::assbin::AssbinScene;
 use crate::project::{SppProject, paths};
 use crate::translate::layers::decal::geometry::SetGeometry;
 use crate::translate::layers::island_texels::IslandTexels;
@@ -20,7 +20,7 @@ impl ProjectMesh {
     /// `None` when the mesh cannot be read (scores then compare every texel).
     pub fn read(project: &SppProject) -> Option<ProjectMesh> {
         let scene = project.read(paths::SCENE).ok()?;
-        let (mesh, faces) = AssbinGeometry::parse_with_faces(&scene).ok()?;
+        let (mesh, faces) = crate::translate::mesh::parse_mesh(&scene).ok()?;
         let uids = AssbinScene::parse(&scene)
             .ok()?
             .materials

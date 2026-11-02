@@ -5,8 +5,8 @@
 
 use super::super::images::{ImageSource, grey_values};
 use super::{failed, refused};
+use crate::blockers::{Blocker, BlockerKey, BlockerKind};
 use crate::model::{PainterSource, Tweak, TweakValue};
-use crate::translate::blockers::{Blocker, BlockerKey, BlockerKind};
 use materialcraft::paint::TiledImage;
 use materialcraft_brush::TipAlpha;
 

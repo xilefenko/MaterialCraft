@@ -1,6 +1,6 @@
+use super::scene_mesh::ScenePart as MeshPart;
 use super::test_writer::{Buf, IDENTITY, header, node, scene_from};
 use super::*;
-use materialcraft::mesh::MeshPart;
 
 /// A unit quad in the XY plane facing +Z, stored as one 4-index polygon, with tangent frames
 /// and one UV set (OpenGL-style: v = 0 at the bottom).

@@ -1,9 +1,9 @@
-//! Turns one decoded mesh block plus one placement into a [`MeshPart`].
+//! Turns one decoded mesh block plus one placement into a [`ScenePart`].
 //!
 //! Conventions of the result:
 //! - Positions, normals and tangents are in world space (the node's world transform applied).
 //!   A mirroring transform reverses the triangle winding so faces keep pointing outwards.
-//! - UVs: Assimp and Painter store OpenGL-style UVs (origin bottom-left, V up); `MeshPart`
+//! - UVs: Assimp and Painter store OpenGL-style UVs (origin bottom-left, V up); `ScenePart`
 //!   uses glTF's (origin top-left, V down), so V is flipped: `v' = 1 - v`. Only u and v are kept.
 //! - Tangent w is the handedness `sign(dot(cross(n, t), b))` with Assimp's bitangent, which
 //!   points along increasing OpenGL V. That is "up" in the image, the direction glTF expects
@@ -13,12 +13,12 @@
 use super::faces::triangulate;
 use super::mesh_block::{MeshBlock, RawArray};
 use super::repair::repair_frames;
+use super::scene_mesh::ScenePart;
 use super::transform::{Transform, cross, dot, normalize};
 use crate::decode::DecodeError;
-use materialcraft::mesh::MeshPart;
 
 /// Builds the part for `mesh` placed with `world`. `name` is the part's name.
-pub fn build_part(mesh: &MeshBlock, world: &Transform, name: String) -> Result<MeshPart, DecodeError> {
+pub fn build_part(mesh: &MeshBlock, world: &Transform, name: String) -> Result<ScenePart, DecodeError> {
     mesh.check_lengths()?;
     let mut triangles = triangulate(mesh.faces, mesh.face_count, mesh.vertex_count())?;
     if world.determinant() < 0.0 {
@@ -28,7 +28,7 @@ pub fn build_part(mesh: &MeshBlock, world: &Transform, name: String) -> Result<M
         .into_iter()
         .map(|n| normalize(world.normal(n)))
         .collect();
-    let mut part = MeshPart {
+    let mut part = ScenePart {
         name,
         material: mesh.material_index as usize,
         positions: decode(mesh.positions).into_iter().map(|p| world.point(p)).collect(),
@@ -36,7 +36,7 @@ pub fn build_part(mesh: &MeshBlock, world: &Transform, name: String) -> Result<M
         normals,
         uv_sets: mesh.uv_sets.iter().map(flipped_uvs).collect(),
         triangles,
-        faces: Default::default(),
+        polygon_starts: Vec::new(),
     };
     repair_frames(&mut part);
     Ok(part)

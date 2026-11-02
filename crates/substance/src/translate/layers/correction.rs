@@ -275,7 +275,10 @@ mod tests {
         assert_eq!(img.get(2, 1)[3], 1.0);
         set.layers.push(c.layer);
         let final_look = composite(&set);
-        assert!((final_look[6] - 0.9).abs() < 2.0 / 255.0, "texel (2, 1) of the 4-wide set");
+        assert!(
+            (final_look[6] - 0.9).abs() < 2.0 / 255.0,
+            "texel (2, 1) of the 4-wide set"
+        );
         assert!(
             final_look
                 .iter()

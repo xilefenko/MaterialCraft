@@ -1,0 +1,14 @@
+[package]
+name = "spp-reader"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+description = "Reads Substance 3D Painter projects (.spp): the container, Painter's records and its layer model, with no tie to any one application"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[dependencies]
+lz4_flex = { version = "0.11", default-features = false, features = ["std", "safe-decode"] }
+
+[lints]
+workspace = true

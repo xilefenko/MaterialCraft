@@ -2,8 +2,8 @@
 //! blocker would unlock. Pure aggregation: no files are read here.
 
 use super::project::ProjectBlockers;
+use crate::blockers::{BlockerKey, BlockerKind};
 use crate::translate::blocker_summary::LockedLayer;
-use crate::translate::blockers::{BlockerKey, BlockerKind};
 use crate::translate::catalog::{Support, support};
 use std::collections::BTreeMap;
 use std::path::PathBuf;

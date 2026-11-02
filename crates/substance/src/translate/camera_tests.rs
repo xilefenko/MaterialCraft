@@ -10,7 +10,7 @@
 //! our imported "Saved view" camera as `<project>.png`, to lay over screenshots of Painter's viewport.
 
 use super::cameras::{ProjectCameras, SAVED_VIEW, SCENE_SOURCE, VIEWER_SOURCE};
-use crate::decode::assbin::{AssbinCamera, AssbinGeometry};
+use crate::decode::assbin::AssbinCamera;
 use crate::model::cameras::{PainterCamera, PainterCameras, PainterProjection};
 use crate::project::SppProject;
 use materialcraft::mesh::{Mesh, MeshPart};
@@ -264,7 +264,7 @@ fn corpus_saved_views_reproduce_painter_framing() {
     for path in corpus_files(&list) {
         let project = SppProject::open(&path).unwrap();
         let scene = project.read("/paint/scene.assbin").unwrap();
-        let mesh = AssbinGeometry::parse(&scene).unwrap();
+        let (mesh, _) = super::mesh::parse_mesh(&scene).unwrap();
         let (cams, notes) = ProjectCameras::read(&project, &scene);
         let view = cams.view(&mesh).unwrap();
         let viewer = cams.painter.viewer.as_ref().unwrap();

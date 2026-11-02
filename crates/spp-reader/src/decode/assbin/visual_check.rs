@@ -1,14 +1,13 @@
 //! Manual check of geometry and UV orientation on one real project (kept outside the repository).
-//! `SPP_EXPORT=<file.spp> SPP_EXPORT_OUT=<dir> cargo test --release -p materialcraft-substance
-//! visual -- --ignored --nocapture` writes `<dir>/<stem>.obj` and, per texture set, a PNG of the
+//! `SPP_EXPORT=<file.spp> SPP_EXPORT_OUT=<dir> cargo test --release -p spp-reader
+//! visual -- --ignored --nocapture` writes `<dir>/<stem>.obj` and, per texture set, a PPM image of the
 //! baked AO with the UV wireframe drawn on top, and prints how well the baked position map,
 //! sampled at each vertex's UV, correlates with the vertex positions for both V conventions.
 
+use super::scene_mesh::{SceneMesh as Mesh, ScenePart as MeshPart};
 use super::*;
 use crate::decode::image::{ImageResource, PixelFormat};
 use crate::project::SppProject;
-use materialcraft::half::f16_to_f32;
-use materialcraft::mesh::{Mesh, MeshPart};
 use std::fmt::Write as _;
 use std::path::Path;
 
@@ -125,7 +124,12 @@ fn uv_plot(part: &MeshPart, (w, h, px): &(u32, u32, Vec<[f32; 4]>), path: &Path)
             }
         }
     }
-    std::fs::write(path, materialcraft::png::encode(ow, oh, &out, 8)).unwrap();
+    let mut ppm = format!("P6\n{ow} {oh}\n255\n").into_bytes();
+    ppm.extend(
+        out.iter()
+            .flat_map(|p| [p[0], p[1], p[2]].map(|c| (c.clamp(0.0, 1.0) * 255.0).round() as u8)),
+    );
+    std::fs::write(path, ppm).unwrap();
 }
 
 #[test]
@@ -149,8 +153,26 @@ fn visual_check_of_one_project() {
             );
         }
         if let Some(ao) = find_image(&project, &format!("Ambient Occlusion Map from Mesh {set}")) {
-            let name = format!("{stem}_{}_uv_on_ao.png", part.name.replace(['/', ' '], "_"));
+            let name = format!("{stem}_{}_uv_on_ao.ppm", part.name.replace(['/', ' '], "_"));
             uv_plot(part, &ao, &Path::new(&out).join(name));
         }
     }
+}
+
+/// IEEE half to single precision (the baked position maps are half floats).
+fn f16_to_f32(h: u16) -> f32 {
+    let sign = ((h >> 15) as u32) << 31;
+    let exp = ((h >> 10) & 0x1f) as u32;
+    let man = (h & 0x3ff) as u32;
+    let bits = match (exp, man) {
+        (0, 0) => sign,
+        (0, _) => {
+            let shift = man.leading_zeros() - 21;
+            sign | ((113 - shift) << 23) | (((man << shift) & 0x3ff) << 13)
+        }
+        (0x1f, 0) => sign | 0x7f80_0000,
+        (0x1f, _) => sign | 0x7fc0_0000 | (man << 13),
+        _ => sign | ((exp + 112) << 23) | (man << 13),
+    };
+    f32::from_bits(bits)
 }

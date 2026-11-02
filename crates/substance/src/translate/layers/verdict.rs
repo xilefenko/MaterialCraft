@@ -138,7 +138,7 @@ mod tests {
         assert!(!v.channel(Channel::Normal).is_exact());
         v.contribute(
             Channel::BaseColor,
-            &Computability::not_computable(crate::translate::blockers::Blocker::feature("strokes", "strokes")),
+            &Computability::not_computable(crate::blockers::Blocker::feature("strokes", "strokes")),
         );
         assert!(!v.channel(Channel::BaseColor).is_computable());
         assert!(v.channel(Channel::Height).is_exact(), "undeclared");

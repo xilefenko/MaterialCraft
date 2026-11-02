@@ -1,12 +1,12 @@
 //! Checks over real projects, which stay outside the repository (Adobe and user content).
-//! Run with `SPP_CORPUS=<folders or .spp files, ';'-separated> cargo test --release -p materialcraft-substance corpus -- --ignored --nocapture`.
+//! Run with `SPP_CORPUS=<folders or .spp files, ';'-separated> cargo test --release -p spp-reader corpus -- --ignored --nocapture`.
 
 use super::node::mesh_instances;
 use super::scene::{SceneBlocks, scene_bytes};
+use super::scene_mesh::SceneMesh as Mesh;
 use super::transform::Transform;
 use super::*;
 use crate::project::SppProject;
-use materialcraft::mesh::Mesh;
 use std::path::{Path, PathBuf};
 
 const SCENE: &str = "/paint/scene.assbin";
@@ -52,7 +52,7 @@ fn placement(data: &[u8]) -> Placement {
 
 /// Compares the geometry with the summary: one part per mesh, same vertex and face counts.
 fn compare(summary: &AssbinScene, mesh: &Mesh) -> Result<(), String> {
-    mesh.validate().map_err(|e| format!("validate: {e:?}"))?;
+    mesh.validate().map_err(|e| format!("validate: {e}"))?;
     if mesh.parts.len() != summary.meshes.len() {
         return Err(format!(
             "{} parts for {} meshes",

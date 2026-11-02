@@ -76,7 +76,7 @@ impl AssbinHeader {
         }
         // zlib = 2-byte header + raw DEFLATE + Adler-32; the inflater wants the raw stream.
         r.skip(2).map_err(DecodeError::truncated(RECORD))?;
-        let out = materialcraft::png::inflate(r.rest()).map_err(|e| DecodeError::invalid(RECORD, e))?;
+        let out = crate::inflate::inflate(r.rest()).map_err(|e| DecodeError::invalid(RECORD, e))?;
         if out.len() != size {
             return Err(DecodeError::invalid(
                 RECORD,

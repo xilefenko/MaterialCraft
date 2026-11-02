@@ -20,8 +20,8 @@ use super::projection_map::ProjectionTable;
 use super::replay::{ReplayTally, StrokeReplay};
 use super::set_surface::SurfaceSource;
 use super::verdict::{LayerNote, MaskFailure, StackVerdict};
+use crate::blockers::Blocker;
 use crate::model::{LayerKind as PainterKind, PainterLayer};
-use crate::translate::blockers::Blocker;
 use crate::translate::replacements::ProceduralPlan;
 use materialcraft::paint::{Channel, Layer, LayerKind, LayerLock, LockReason};
 

@@ -1,8 +1,8 @@
 //! Builds Painter's model for every `.spp` below `MC_SUBSTANCE_CORPUS` (skipped without it). Every project
 //! must build, keep no object raw, and have a layer stack per texture set that reaches the stored layers.
 
-use materialcraft_substance::model::StackSummary;
-use materialcraft_substance::project::SppProject;
+use spp_reader::model::StackSummary;
+use spp_reader::project::SppProject;
 use std::path::{Path, PathBuf};
 
 fn spp_files(dir: &Path, out: &mut Vec<PathBuf>) {

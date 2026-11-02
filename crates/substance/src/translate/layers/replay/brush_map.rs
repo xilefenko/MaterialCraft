@@ -46,7 +46,7 @@ pub struct MappedBrush {
 }
 
 use super::refused;
-pub use crate::translate::blockers::Blocker;
+pub use crate::blockers::Blocker;
 
 /// Maps the brush of `effect`; `None` when the effect has no brush (Painter's defaults are taken then).
 pub fn map(effect: &PaintEffect) -> Result<MappedBrush, Blocker> {

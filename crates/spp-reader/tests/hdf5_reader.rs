@@ -1,7 +1,7 @@
 //! The HDF5 reader against `fixtures/small.h5` (made by `fixtures/make_fixture.c` with libhdf5) and,
 //! optionally, against a folder of real `.spp` files named by `MC_SUBSTANCE_CORPUS`.
 
-use materialcraft_substance::container::hdf5::{Entry, EntryKind, Hdf5Error, Hdf5File};
+use spp_reader::container::hdf5::{Entry, EntryKind, Hdf5Error, Hdf5File};
 use std::path::{Path, PathBuf};
 
 fn fixture() -> Hdf5File {

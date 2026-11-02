@@ -2,7 +2,7 @@
 //! a whole channel) can be reproduced from the document alone, with the reasons when it cannot. What makes a part
 //! not computable is always a typed [`Blocker`], so locks, reports and `mcsub blockers` can group by its key.
 
-use crate::translate::blockers::Blocker;
+use crate::blockers::Blocker;
 
 /// At most this many distinct reasons are kept per part (the report stays readable).
 const MAX_REASONS: usize = 6;

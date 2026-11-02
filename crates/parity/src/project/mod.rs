@@ -10,7 +10,7 @@ use crate::settings::{BAKING_INI, HighPolyRequest, MaterialBaking, PainterBaking
 use crate::subject::CaseError;
 use materialcraft::bake::TextureSetRef;
 use materialcraft::mesh::Mesh;
-use materialcraft_substance::decode::assbin::{AssbinGeometry, Normalization};
+use materialcraft_substance::decode::assbin::Normalization;
 use materialcraft_substance::decode::document::NormalMapSyscoord;
 use materialcraft_substance::project::{SppProject, paths};
 use std::path::{Path, PathBuf};
@@ -35,7 +35,8 @@ impl OpenedProject {
     pub fn open(path: &Path) -> Result<OpenedProject, String> {
         let spp = SppProject::open(path).map_err(|e| e.to_string())?;
         let scene = spp.read(paths::SCENE).map_err(|e| e.to_string())?;
-        let mesh = AssbinGeometry::parse(&scene).map_err(|e| format!("mesh: {e}"))?;
+        let (mesh, _) =
+            materialcraft_substance::translate::mesh::parse_mesh(&scene).map_err(|e| format!("mesh: {e}"))?;
         let mut notes = Vec::new();
         let normalization = spp.mesh_normalization(&scene).unwrap_or_else(|e| {
             notes.push(format!("mesh normalisation unreadable: {e}"));

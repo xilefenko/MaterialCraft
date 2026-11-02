@@ -1,4 +1,4 @@
-//! Full geometry of the scene as a [`Mesh`]; see [`super::part`] for the conventions.
+//! Full geometry of the scene as a [`SceneMesh`]; see [`super::part`] for the conventions.
 
 use super::RECORD;
 use super::faces::polygon_starts;
@@ -7,9 +7,9 @@ use super::mesh_block::MeshBlock;
 use super::node::{MeshInstance, mesh_instances};
 use super::part::build_part;
 use super::scene::{SceneBlocks, scene_bytes};
+use super::scene_mesh::SceneMesh;
 use super::transform::Transform;
 use crate::decode::DecodeError;
-use materialcraft::mesh::{FaceGroups, Mesh};
 
 /// Upper bound on vertices after instancing (the corpus maximum is far below a million),
 /// so a node tree repeating a big mesh cannot exhaust memory.
@@ -21,14 +21,9 @@ pub struct AssbinGeometry;
 impl AssbinGeometry {
     /// One part per mesh placement in the node tree (a mesh placed by two nodes gives two parts,
     /// named `mesh [node]`); meshes no node places are kept once, untransformed.
-    /// The materials are the texture set names.
-    pub fn parse(data: &[u8]) -> Result<Mesh, DecodeError> {
-        Self::parse_with_faces(data).map(|(mesh, _)| mesh)
-    }
-
-    /// [`Self::parse`] plus each part's face groups (Painter's source polygons, from the per-face flag), kept beside
-    /// the mesh for polygon-fill picks.
-    pub fn parse_with_faces(data: &[u8]) -> Result<(Mesh, Vec<FaceGroups>), DecodeError> {
+    /// The materials are the texture set names. Each part keeps Painter's source polygons (from the per-face flag)
+    /// as [`super::ScenePart::polygon_starts`], for polygon-fill picks.
+    pub fn parse(data: &[u8]) -> Result<SceneMesh, DecodeError> {
         let scene = scene_bytes(data)?;
         let blocks = SceneBlocks::split(&scene)?;
         let meshes = blocks
@@ -52,7 +47,6 @@ impl AssbinGeometry {
             ));
         }
         let mut parts = Vec::with_capacity(instances.len());
-        let mut faces = Vec::with_capacity(instances.len());
         for instance in &instances {
             let mesh = &meshes[instance.mesh as usize];
             if mesh.material_index as usize >= materials.len() {
@@ -66,13 +60,10 @@ impl AssbinGeometry {
                 false => mesh.name.clone(),
             };
             let mut part = build_part(mesh, &instance.world, name)?;
-            let groups = FaceGroups::from_polygon_starts(polygon_starts(mesh.faces, mesh.face_count)?);
-            // the document keeps them with the part (PT-47)
-            part.faces = groups.clone();
+            part.polygon_starts = polygon_starts(mesh.faces, mesh.face_count)?;
             parts.push(part);
-            faces.push(groups);
         }
-        Ok((Mesh { materials, parts }, faces))
+        Ok(SceneMesh { materials, parts })
     }
 }
 

@@ -1,11 +1,11 @@
 //! Runs the record decoders over real Painter projects. Skipped unless `MC_SUBSTANCE_CORPUS` names a folder
 //! (searched recursively for `.spp` files). No bytes from those files are kept in the repository.
 
-use materialcraft_substance::container::hdf5::{EntryKind, Hdf5File};
-use materialcraft_substance::decode::image::ImageHeader;
-use materialcraft_substance::decode::resource_toc::ResourceToc;
-use materialcraft_substance::decode::settings::ProjectSettings;
-use materialcraft_substance::decode::texture_cache::CacheHeader;
+use spp_reader::container::hdf5::{EntryKind, Hdf5File};
+use spp_reader::decode::image::ImageHeader;
+use spp_reader::decode::resource_toc::ResourceToc;
+use spp_reader::decode::settings::ProjectSettings;
+use spp_reader::decode::texture_cache::CacheHeader;
 use std::path::{Path, PathBuf};
 
 /// Enough for every header seen so far (they are under 500 bytes).

@@ -4,8 +4,8 @@
 
 use super::super::channels::SetChannels;
 use super::refused;
+use crate::blockers::Blocker;
 use crate::model::{PaintEffect, PaintTool, PainterSource};
-use crate::translate::blockers::Blocker;
 use materialcraft::paint::{Channel, ColorSpace, TiledImage};
 use materialcraft::stamp::{ChannelTarget, StampMode};
 

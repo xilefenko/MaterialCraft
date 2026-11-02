@@ -7,8 +7,8 @@ pub mod geometry;
 pub mod pick;
 
 use super::computability::Computability;
+use crate::blockers::Blocker;
 use crate::model::{HitGranularity, PainterView, PolygonFillEffect};
-use crate::translate::blockers::Blocker;
 use geometry::SetGeometry;
 use materialcraft::paint::effect::{Pick, PickMode, Selection};
 use std::collections::{BTreeMap, BTreeSet};

@@ -13,7 +13,6 @@
 pub mod bake_settings;
 mod baked_maps;
 pub mod blocker_summary;
-pub mod blockers;
 pub(crate) mod cache_channels;
 #[cfg(test)]
 mod camera_tests;
@@ -26,6 +25,7 @@ mod foreign;
 mod importer;
 pub mod layers;
 pub mod library;
+pub mod mesh;
 pub mod normal_conventions;
 pub mod origin;
 mod pixel_convert;

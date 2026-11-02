@@ -7,8 +7,8 @@ use super::computability::Computability;
 use super::content::ContentEvaluator;
 use super::effect_data::AnchorIds;
 use super::mask::MaskEvaluator;
+use crate::blockers::Blocker;
 use crate::model::{LayerKind, PainterEffect, PainterLayer, PainterMask};
-use crate::translate::blockers::Blocker;
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Default, PartialEq)]

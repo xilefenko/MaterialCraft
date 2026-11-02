@@ -12,8 +12,8 @@
 //! A blocker that's [`Support::Replaceable`] or [`Support::Replayable`] still blocked the import it was met in
 //! because of a choice (the procedural was kept, replay was off); the catalog says what the other choice gives.
 
-use super::blockers::{BlockerKey, BlockerKind};
 use super::replacements;
+use crate::blockers::{BlockerKey, BlockerKind};
 
 /// What MaterialCraft can do about a blocker.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -2,8 +2,8 @@
 //! [`BlockerSummary`] grouped by blocker kind, with totals and the texts of each row. No drawing here.
 
 use materialcraft::paint::Document;
+use materialcraft_substance::blockers::{BlockerKey, BlockerKind};
 use materialcraft_substance::translate::blocker_summary::{BlockerSummary, BlockerUse, LockedLayer};
-use materialcraft_substance::translate::blockers::{BlockerKey, BlockerKind};
 use materialcraft_substance::translate::catalog::Support;
 
 /// The heading of blockers whose key isn't a blocker key the catalog knows (a lock from another source).

@@ -87,7 +87,7 @@ fn deep_nesting_is_bounded() {
 }
 
 /// Real files are Adobe and user content, so they stay outside the repository.
-/// Run with `DOCUMENT_SAMPLES=<dir> cargo test -p materialcraft-substance -- --ignored`.
+/// Run with `DOCUMENT_SAMPLES=<dir> cargo test -p spp-reader -- --ignored`.
 #[test]
 #[ignore]
 fn scans_real_samples() {

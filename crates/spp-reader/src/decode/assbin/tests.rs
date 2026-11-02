@@ -107,7 +107,7 @@ fn huge_counts_are_rejected() {
 }
 
 /// Real files are Adobe and user content, so they stay outside the repository.
-/// Run with `ASSBIN_SAMPLES=<dir> cargo test -p materialcraft-substance -- --ignored`.
+/// Run with `ASSBIN_SAMPLES=<dir> cargo test -p spp-reader -- --ignored`.
 #[test]
 #[ignore]
 fn parses_real_samples() {

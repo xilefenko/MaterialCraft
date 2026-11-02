@@ -20,7 +20,7 @@ use super::report::Reporter;
 use super::set_builder::SetBuilder;
 use super::set_layers::SetLayers;
 use super::texture_sets::SetBinding;
-use crate::decode::assbin::{AssbinGeometry, AssbinScene};
+use crate::decode::assbin::AssbinScene;
 use crate::model::PainterDocument;
 use crate::project::{SppProject, paths};
 use materialcraft::material_fill::MaterialResolver;
@@ -150,7 +150,7 @@ impl Importer {
         let scene = self.project.read(paths::SCENE)?;
         cancel.check()?;
         let decode = |part| move |source| ImportError::Decode { part, source };
-        let (mut mesh, faces) = AssbinGeometry::parse_with_faces(&scene).map_err(decode("mesh"))?;
+        let (mut mesh, faces) = super::mesh::parse_mesh(&scene).map_err(decode("mesh"))?;
         let materials = AssbinScene::parse(&scene).map_err(decode("mesh"))?.materials;
         report.mesh(mesh.parts.len(), mesh.parts.iter().map(|p| p.triangles.len()).sum());
         cancel.check()?;

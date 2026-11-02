@@ -8,7 +8,7 @@ license = "MIT OR Apache-2.0"
 readme = "README.md"
 
 [workspace]
-members = ["crates/substance", "crates/parity", "crates/editor", "crates/brush", "crates/starter", "crates/perf"]
+members = ["crates/spp-reader", "crates/substance", "crates/parity", "crates/editor", "crates/brush", "crates/starter", "crates/perf"]
 
 # Suite lints (same as PhotoCraft). Every member crate inherits them with `[lints] workspace = true`.
 [workspace.lints.rust]

@@ -2,9 +2,9 @@
 //! support for each blocker. It reads only the locks the import left on the layers (their reason keys), so it
 //! works on any saved `.mcpaint`, not just on a fresh import. The blockers panel and `mcsub blockers` show it.
 
-use super::blockers::BlockerKey;
 use super::catalog::{Support, support};
 use super::layers::correction::CORRECTION_KEY;
+use crate::blockers::BlockerKey;
 use materialcraft::paint::{Document, Layer, LayerKind, TextureSet};
 use std::collections::BTreeMap;
 

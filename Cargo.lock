@@ -1500,6 +1500,7 @@ dependencies = [
  "lz4_flex",
  "materialcraft",
  "materialcraft-brush",
+ "spp-reader",
 ]
 
 [[package]]
@@ -2665,6 +2666,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eda41003dc44290527a59b13432d4a0379379fa074b70174882adfbdfd917844"
 dependencies = [
  "bitflags 2.13.2",
+]
+
+[[package]]
+name = "spp-reader"
+version = "0.1.0"
+dependencies = [
+ "lz4_flex",
 ]
 
 [[package]]

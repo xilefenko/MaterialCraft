@@ -21,6 +21,7 @@ mod normalization;
 mod part;
 mod repair;
 mod scene;
+mod scene_mesh;
 #[cfg(test)]
 mod test_writer;
 #[cfg(test)]
@@ -36,6 +37,7 @@ pub use material::MaterialSummary;
 pub use mesh::MeshSummary;
 pub use mesh_meta::MeshMetadata;
 pub use normalization::Normalization;
+pub use scene_mesh::{SceneMesh, ScenePart};
 
 use crate::decode::DecodeError;
 use scene::{SceneBlocks, scene_bytes};
@@ -60,7 +62,7 @@ impl AssbinScene {
     }
 
     /// The full geometry; same as [`AssbinGeometry::parse`].
-    pub fn parse_geometry(data: &[u8]) -> Result<materialcraft::mesh::Mesh, DecodeError> {
+    pub fn parse_geometry(data: &[u8]) -> Result<SceneMesh, DecodeError> {
         AssbinGeometry::parse(data)
     }
 }
