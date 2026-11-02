@@ -3,13 +3,13 @@
 //! - **Real stack**: every channel of the imported layers reproduces Painter exactly (only visible,
 //!   contributing layers count). The layers are the result; the flattened cache layer stays as a hidden
 //!   reference at the top ("Painter result (reference)").
-//! - **Painter result on top**: something is not computable (procedurals, strokes, a guessed blend mode …). The
+//! - **Corrected**: something is not computable (procedurals, strokes, a guessed blend mode …). The
 //!   layers are imported as they are (those that can't be computed are locked), and a correction layer
 //!   ([`super::correction`]) on top of them holds Painter's flattened result on exactly the texels the layers don't
 //!   reproduce, so the visible result is Painter's while every layer can still be switched on and off underneath.
 //!   The full flattened result stays as the hidden reference above it.
 //! - **Cache disagrees**: every layer is computable, but the composite differs from Painter's cache beyond
-//!   rounding ([`CacheAgreement`], e.g. a stale cache). Arranged like "Painter result on top", so an import
+//!   rounding ([`CacheAgreement`], e.g. a stale cache). Arranged like "Corrected", so an import
 //!   never looks worse than the flattened one.
 //! - **Replacements**: every channel is exact apart from Substance procedurals the user chose to replace with
 //!   MaterialCraft's generators and brush strokes replayed by our brush pipeline. Arranged like the real stack (the layers are the result, editable; Painter's
@@ -35,7 +35,7 @@ pub const REFERENCE_NAME: &str = "Painter result (reference)";
 pub enum StackStrategy {
     RealStack,
     Replacements,
-    PainterResultOnTop,
+    Corrected,
     CacheDisagrees,
     BestEffort,
 }
@@ -49,14 +49,14 @@ impl StackStrategy {
         match (verdict.all_exact(), has_painter_result) {
             (true, true) if !agreement.agrees() => StackStrategy::CacheDisagrees,
             (true, _) => StackStrategy::RealStack,
-            (false, true) => StackStrategy::PainterResultOnTop,
+            (false, true) => StackStrategy::Corrected,
             (false, false) => StackStrategy::BestEffort,
         }
     }
 
     /// True when a correction layer ([`super::correction`]) goes between the imported layers and the reference.
     pub fn corrects(self) -> bool {
-        matches!(self, StackStrategy::PainterResultOnTop | StackStrategy::CacheDisagrees)
+        matches!(self, StackStrategy::Corrected | StackStrategy::CacheDisagrees)
     }
 
     pub fn describe(self) -> &'static str {
@@ -67,7 +67,7 @@ impl StackStrategy {
             StackStrategy::Replacements => {
                 "layers reproduce Painter with MaterialCraft's replacements for Substance procedurals or replayed brush strokes and are the result; Painter's flattened result kept hidden as a reference"
             }
-            StackStrategy::PainterResultOnTop => {
+            StackStrategy::Corrected => {
                 "not every layer is computable: a correction layer shows Painter's flattened result where the imported layers differ"
             }
             StackStrategy::CacheDisagrees => {

@@ -137,7 +137,7 @@ fn uncomputable_layers_are_kept_with_reasons_and_hidden_ones_do_not_count() {
     assert!(stack.layers[0].lock.is_none(), "an exact layer stays editable");
     assert_eq!(
         StackStrategy::choose(&stack.verdict, true, &agrees()),
-        StackStrategy::PainterResultOnTop
+        StackStrategy::Corrected
     );
     assert_eq!(
         StackStrategy::choose(&stack.verdict, false, &agrees()),

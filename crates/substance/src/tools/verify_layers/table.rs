@@ -30,7 +30,7 @@ fn strategy_name(s: StackStrategy) -> &'static str {
     match s {
         StackStrategy::RealStack => "real stack",
         StackStrategy::Replacements => "real stack with replacements",
-        StackStrategy::PainterResultOnTop => "Painter correction on top",
+        StackStrategy::Corrected => "Painter correction on top",
         StackStrategy::CacheDisagrees => "Painter result on top (cache disagrees)",
         StackStrategy::BestEffort => "best effort",
     }
@@ -69,7 +69,7 @@ impl Verification {
             self.sets.len(),
             count(StackStrategy::RealStack),
             count(StackStrategy::Replacements),
-            count(StackStrategy::PainterResultOnTop) + count(StackStrategy::CacheDisagrees),
+            count(StackStrategy::Corrected) + count(StackStrategy::CacheDisagrees),
             count(StackStrategy::CacheDisagrees)
         )?;
         let all: usize = self.sets.iter().map(|s| s.channels.len()).sum();

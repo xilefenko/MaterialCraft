@@ -23,7 +23,7 @@ fn strategies_arrange_the_painter_result_and_defaults() {
     for strategy in [
         StackStrategy::RealStack,
         StackStrategy::Replacements,
-        StackStrategy::PainterResultOnTop,
+        StackStrategy::Corrected,
         StackStrategy::CacheDisagrees,
     ] {
         let layers = strategy.assemble(parts(), &channels());
@@ -34,7 +34,7 @@ fn strategies_arrange_the_painter_result_and_defaults() {
             "{strategy:?}: Painter's result is the hidden reference"
         );
     }
-    assert!(StackStrategy::PainterResultOnTop.corrects() && StackStrategy::CacheDisagrees.corrects());
+    assert!(StackStrategy::Corrected.corrects() && StackStrategy::CacheDisagrees.corrects());
     assert!(!StackStrategy::RealStack.corrects() && !StackStrategy::Replacements.corrects());
     assert_eq!(
         ids(&StackStrategy::BestEffort.assemble(parts(), &channels())),
@@ -113,7 +113,7 @@ fn layers_with_uncomputable_masks_are_hidden_and_locked() {
         painter_result: Some(plain("result")),
         defaults: plain("defaults"),
     };
-    for strategy in [StackStrategy::BestEffort, StackStrategy::PainterResultOnTop] {
+    for strategy in [StackStrategy::BestEffort, StackStrategy::Corrected] {
         let layers = strategy.assemble(parts(stack.layers.clone()), &channels());
         let dirt = &layers[2].children()[0];
         assert!(!dirt.visible, "{strategy:?}: it would cover the whole set");
