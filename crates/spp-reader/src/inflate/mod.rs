@@ -31,38 +31,45 @@ impl<'a> BitR<'a> {
 }
 
 struct Huff {
+    /// Number of codes of each bit length (index 0 unused).
     count: [u16; 16],
+    /// Symbols ordered by code.
     symbol: Vec<u16>,
 }
 
-fn build(lengths: &[u8]) -> Huff {
+fn build(lengths: &[u8]) -> Result<Huff, String> {
     let mut count = [0u16; 16];
     for &l in lengths {
-        count[l as usize & 15] += 1;
+        *count.get_mut(usize::from(l)).ok_or("bad code length")? += 1;
     }
+    // First position in `symbol` of the codes of each length.
     let mut offs = [0u16; 16];
-    for i in 1..15 {
-        offs[i + 1] = offs[i] + count[i];
+    let mut running = 0u16;
+    for (off, &n) in offs.iter_mut().zip(&count).skip(1) {
+        *off = running;
+        running += n;
     }
     let mut symbol = vec![0u16; lengths.len()];
     for (s, &l) in lengths.iter().enumerate() {
         if l != 0 {
-            symbol[offs[l as usize & 15] as usize] = s as u16;
-            offs[l as usize & 15] += 1;
+            let off = offs.get_mut(usize::from(l)).ok_or("bad code length")?;
+            *symbol.get_mut(usize::from(*off)).ok_or("bad code lengths")? = s as u16;
+            *off += 1;
         }
     }
-    Huff { count, symbol }
+    Ok(Huff { count, symbol })
 }
 
 fn decode_sym(br: &mut BitR, h: &Huff) -> Result<u16, String> {
     let (mut code, mut first, mut index) = (0i32, 0i32, 0i32);
-    for len in 1..16 {
+    // Code lengths 1 to 15.
+    for &count in h.count.iter().skip(1) {
         code |= br.bits(1)? as i32;
-        let count = h.count[len] as i32;
+        let count = i32::from(count);
         if code - count < first {
-            return h
-                .symbol
-                .get((index + (code - first)) as usize)
+            return usize::try_from(index + (code - first))
+                .ok()
+                .and_then(|i| h.symbol.get(i))
                 .copied()
                 .ok_or_else(|| "bad huffman code".to_string());
         }
@@ -83,20 +90,15 @@ fn codes(br: &mut BitR, out: &mut Vec<u8>, lh: &Huff, dh: &Huff) -> Result<(), S
             return Ok(());
         } else {
             let s = sym - 257;
-            if s >= 29 {
-                return Err("bad length symbol".into());
-            }
-            let len = LBASE[s] as usize + br.bits(LEXT[s] as u32)? as usize;
+            let (&base, &extra) = LBASE.get(s).zip(LEXT.get(s)).ok_or("bad length symbol")?;
+            let len = base as usize + br.bits(u32::from(extra))? as usize;
             let ds = decode_sym(br, dh)? as usize;
-            if ds >= 30 {
-                return Err("bad distance symbol".into());
-            }
-            let dist = DBASE[ds] as usize + br.bits(DEXT[ds] as u32)? as usize;
-            if dist > out.len() {
-                return Err("distance too far back".into());
-            }
-            for _ in 0..len {
-                let b = out[out.len() - dist];
+            let (&base, &extra) = DBASE.get(ds).zip(DEXT.get(ds)).ok_or("bad distance symbol")?;
+            let dist = base as usize + br.bits(u32::from(extra))? as usize;
+            let from = out.len().checked_sub(dist).ok_or("distance too far back")?;
+            // Byte by byte: the copy may overlap the bytes it appends.
+            for i in from..from + len {
+                let b = *out.get(i).ok_or("distance too far back")?;
                 out.push(b);
             }
         }
@@ -120,17 +122,19 @@ pub fn inflate(data: &[u8]) -> Result<Vec<u8>, String> {
             0 => {
                 br.bit = 0;
                 br.cnt = 0;
-                let p = br.pos;
-                if p + 4 > data.len() {
-                    return Err("truncated stored block".into());
-                }
-                let len = u16::from_le_bytes([data[p], data[p + 1]]) as usize;
-                let nlen = u16::from_le_bytes([data[p + 2], data[p + 3]]) as usize;
-                if len != (!nlen & 0xffff) || p + 4 + len > data.len() {
-                    return Err("bad stored block".into());
-                }
-                out.extend_from_slice(&data[p + 4..p + 4 + len]);
-                br.pos = p + 4 + len;
+                let (header, rest) = data
+                    .get(br.pos..)
+                    .and_then(<[u8]>::split_first_chunk::<4>)
+                    .ok_or("truncated stored block")?;
+                let [l0, l1, n0, n1] = *header;
+                let len = usize::from(u16::from_le_bytes([l0, l1]));
+                let nlen = usize::from(u16::from_le_bytes([n0, n1]));
+                let stored = rest
+                    .get(..len)
+                    .filter(|_| len == (!nlen & 0xffff))
+                    .ok_or("bad stored block")?;
+                out.extend_from_slice(stored);
+                br.pos += 4 + len;
             }
             1 => {
                 let mut l = [0u8; 288];
@@ -145,7 +149,7 @@ pub fn inflate(data: &[u8]) -> Result<Vec<u8>, String> {
                         8
                     };
                 }
-                codes(&mut br, &mut out, &build(&l), &build(&[5u8; 30]))?;
+                codes(&mut br, &mut out, &build(&l)?, &build(&[5u8; 30])?)?;
             }
             2 => {
                 let nlen = br.bits(5)? as usize + 257;
@@ -154,40 +158,31 @@ pub fn inflate(data: &[u8]) -> Result<Vec<u8>, String> {
                 if nlen > 286 || ndist > 30 {
                     return Err("bad dynamic header".into());
                 }
-                let mut lengths = [0u8; 320];
+                let mut lengths = [0u8; 19];
                 for &o in CODE_LENGTH_ORDER.iter().take(ncode) {
-                    lengths[o] = br.bits(3)? as u8;
+                    *lengths.get_mut(o).ok_or("bad dynamic header")? = br.bits(3)? as u8;
                 }
-                let lc = build(&lengths[..19]);
-                let mut idx = 0;
+                let lc = build(&lengths)?;
                 let total = nlen + ndist;
-                let mut ll = [0u8; 320];
-                while idx < total {
+                let mut ll = Vec::with_capacity(total);
+                while ll.len() < total {
                     let sym = decode_sym(&mut br, &lc)?;
                     if sym < 16 {
-                        ll[idx] = sym as u8;
-                        idx += 1;
+                        ll.push(sym as u8);
                     } else {
                         let (prev, rep) = match sym {
-                            16 => {
-                                if idx == 0 {
-                                    return Err("bad repeat".into());
-                                }
-                                (ll[idx - 1], 3 + br.bits(2)? as usize)
-                            }
+                            16 => (*ll.last().ok_or("bad repeat")?, 3 + br.bits(2)? as usize),
                             17 => (0, 3 + br.bits(3)? as usize),
                             _ => (0, 11 + br.bits(7)? as usize),
                         };
-                        if idx + rep > total {
+                        if ll.len() + rep > total {
                             return Err("too many lengths".into());
                         }
-                        for _ in 0..rep {
-                            ll[idx] = prev;
-                            idx += 1;
-                        }
+                        ll.resize(ll.len() + rep, prev);
                     }
                 }
-                codes(&mut br, &mut out, &build(&ll[..nlen]), &build(&ll[nlen..total]))?;
+                let (lit, dist) = ll.split_at_checked(nlen).ok_or("bad dynamic header")?;
+                codes(&mut br, &mut out, &build(lit)?, &build(dist)?)?;
             }
             _ => return Err("bad block type".into()),
         }
@@ -211,5 +206,37 @@ mod tests {
         assert_eq!(inflate(compressed).as_deref(), Ok(expected.as_slice()));
         assert!(inflate(&[0xff, 0xff]).is_err());
         assert!(inflate(&[]).is_err());
+    }
+
+    #[test]
+    fn stored_blocks_are_copied_and_checked() {
+        assert_eq!(
+            inflate(&[0x01, 3, 0, 0xfc, 0xff, b'a', b'b', b'c']).as_deref(),
+            Ok(&b"abc"[..])
+        );
+        // Length and its complement disagree.
+        assert!(inflate(&[0x01, 3, 0, 0, 0, b'a', b'b', b'c']).is_err());
+        // Fewer bytes than the length says.
+        assert!(inflate(&[0x01, 5, 0, 0xfa, 0xff, b'a']).is_err());
+        // Header cut short.
+        assert!(inflate(&[0x01, 3, 0]).is_err());
+    }
+
+    #[test]
+    fn bad_block_type_and_back_reference_before_the_start_are_errors() {
+        assert_eq!(inflate(&[0x07]), Err("bad block type".to_string()));
+        // Fixed block whose first symbol is a length (257) with distance 1, but nothing has been output yet.
+        assert_eq!(inflate(&[0x03, 0x02, 0x00]), Err("distance too far back".to_string()));
+    }
+
+    #[test]
+    fn every_truncation_of_a_valid_stream_is_an_error() {
+        let compressed: &[u8] = &[
+            11, 72, 204, 204, 43, 73, 45, 82, 200, 78, 77, 45, 40, 86, 200, 44, 41, 86, 200, 77, 45, 206, 80, 72, 73,
+            77, 203, 73, 44, 73, 77, 177, 86, 8, 24, 85, 48, 170, 128, 190, 10, 0,
+        ];
+        for end in 0..compressed.len() - 1 {
+            assert!(inflate(&compressed[..end]).is_err(), "prefix of {end} bytes");
+        }
     }
 }
