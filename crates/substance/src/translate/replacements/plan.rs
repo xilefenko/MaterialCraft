@@ -112,6 +112,11 @@ impl ProceduralPlan {
 
     pub fn parse(text: &str) -> Result<ProceduralPlan, String> {
         let v = json::parse(text).map_err(|e| format!("choices: {e}"))?;
+        ProceduralPlan::from_json(&v)
+    }
+
+    /// The plan of a parsed `choices.json` (the form [`Self::to_json`] writes, or the `mcsub analyze` arrays).
+    pub fn from_json(v: &Value) -> Result<ProceduralPlan, String> {
         let mut plan = ProceduralPlan::default();
         if let Some(d) = v.get("default") {
             plan.default = choice_of(d, "default")?;

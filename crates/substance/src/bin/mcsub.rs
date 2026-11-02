@@ -15,6 +15,15 @@
 //!     mcsub convert <in.spp> <out.mcpaint> [--plan choices.json | --procedurals keep|replace] [--strokes keep|replay]
 //!                                                  import and save as .mcpaint
 //!     mcsub convert --all <folder> <out dir> [--discard] [--jobs N]   convert every .spp below the folder
+//!     mcsub reimport <in.mcpaint> <out.mcpaint> [--source <file.spp>] [--plan choices.json | --procedurals keep|replace]
+//!                    [--strokes keep|replay] [--library <dir>]
+//!                                                  import a converted document's .spp again, from the source and with
+//!                                                  the options its import origin recorded (each flag overrides the
+//!                                                  stored value; `--source` when the .spp moved), save it as <out>
+//!                                                  and print what changed in the locks: layers newly unlocked, newly
+//!                                                  locked and still locked (matched by layer id, which comes from
+//!                                                  Painter's layer uid), and the locked layers per blocker key before
+//!                                                  and after (`tools::lock_diff`)
 //!     mcsub report <in>                            import and print the import report
 //!     mcsub maps <in> <out dir>                    final maps per texture set as PNGs
 //!     mcsub compare <in> <export dir> [--diff <dir>] [--height-normal <factor>]
@@ -65,6 +74,7 @@ use materialcraft_substance::tools::material_match::report::MatchTable;
 use materialcraft_substance::tools::material_match::{MaterialMatches, ProjectPlanner, TrayMaterials};
 use materialcraft_substance::tools::model_text::ModelText;
 use materialcraft_substance::tools::parallel::CorpusPool;
+use materialcraft_substance::tools::reimport::{self, ReimportRequest};
 use materialcraft_substance::tools::report_text::ReportText;
 use materialcraft_substance::tools::verify_layers::isolate::IsolateOptions;
 use materialcraft_substance::tools::verify_layers::isolate::corpus::{CASE_HEADER, census_files};
@@ -79,7 +89,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::Arc;
 
-const USAGE: &str = "usage: mcsub inspect|tree|doc|model|corpus|analyze|library|convert|report|maps|compare|verify-layers|isolate|blockers … (see the source header for details)";
+const USAGE: &str = "usage: mcsub inspect|tree|doc|model|corpus|analyze|library|convert|reimport|report|maps|compare|verify-layers|isolate|blockers … (see the source header for details)";
 
 /// Parsed command line: positional words, `--flag`s and `--diff <dir>`.
 struct Args {
@@ -104,6 +114,8 @@ struct Args {
     top: Option<usize>,
     /// `--json <file>`: also write the result as JSON.
     json: Option<PathBuf>,
+    /// `--source <file.spp>` (reimport).
+    source: Option<PathBuf>,
 }
 
 impl Args {
@@ -122,6 +134,7 @@ impl Args {
             limit: None,
             top: None,
             json: None,
+            source: None,
         };
         let mut it = raw.into_iter();
         while let Some(a) = it.next() {
@@ -137,6 +150,7 @@ impl Args {
                 "--limit" => args.limit = it.next().and_then(|v| v.parse().ok()),
                 "--top" => args.top = it.next().and_then(|v| v.parse().ok()),
                 "--json" => args.json = it.next().map(PathBuf::from),
+                "--source" => args.source = it.next().map(PathBuf::from),
                 f if f.starts_with("--") => args.flags.push(a),
                 _ => args.words.push(a),
             }
@@ -325,6 +339,18 @@ fn run(args: Args) -> Result<(), String> {
             )
             .map_err(|e| err(&e))?;
             println!("{summary}");
+        }
+        ["reimport", input, out] => {
+            let request = ReimportRequest {
+                source: args.source.clone(),
+                plan: (args.plan.is_some() || args.procedurals.is_some())
+                    .then(|| args.plan())
+                    .transpose()?,
+                replay: args.strokes.is_some().then(|| args.replay()).transpose()?,
+                library: args.library.clone(),
+            };
+            let summary = reimport::reimport(Path::new(input), Path::new(out), &request, &mut progress_line)?;
+            print!("{summary}");
         }
         ["report", input] => {
             let doc = open_document(Path::new(input), &args.plan()?)?;

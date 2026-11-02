@@ -59,6 +59,8 @@ pub enum PanelEvent {
     Open,
     /// Pick a Substance Painter project.
     Import,
+    /// Import the open document's `.spp` again with its earlier choices (it has an import origin).
+    Reimport,
     Close,
     /// Save to the document's file (Save As if it has none).
     Save,

@@ -3,6 +3,7 @@
 use super::bake_config::BakeLinks;
 use super::embedded::EmbeddedAsset;
 use super::height_normal::HeightFilter;
+use super::import_origin::ImportOrigin;
 use super::project_settings::ProjectSettings;
 use super::report::ImportReport;
 use super::saved_view::SavedView;
@@ -35,6 +36,8 @@ pub struct Document {
     pub assets: Vec<EmbeddedAsset>,
     /// Present if the document came from an import.
     pub import_report: Option<ImportReport>,
+    /// The source file and options of the import, to import it again; present if an importer set it.
+    pub import_origin: Option<ImportOrigin>,
     /// The cameras, exposure and environment it was last looked at with (display state; ADR 0008 mc2-vq15).
     pub view: Option<SavedView>,
     /// Shader instances, which texture set uses which, and the mesh's length unit (VS-03, VS-12). Changed only

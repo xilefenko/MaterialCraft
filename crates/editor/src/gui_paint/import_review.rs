@@ -61,6 +61,10 @@ pub struct ImportReview {
     library: Vec<PathBuf>,
     /// The user's own library folder, where ticked library items go (`None`: there is none, nothing can be added).
     user_library: Option<PathBuf>,
+    /// The choices the review starts with (and imports with when there is nothing to ask).
+    initial: ProceduralPlan,
+    /// The stroke replay choice to start from.
+    initial_replay: ReplayChoice,
     state: State,
 }
 
@@ -68,11 +72,22 @@ impl ImportReview {
     /// Starts analysing `source` in the background, offering the materials of the `library` folders and adding
     /// ticked project assets to `user_library`.
     pub fn start(source: PathBuf, library: Vec<PathBuf>, user_library: Option<PathBuf>) -> ImportReview {
+        ImportReview::start_with(source, library, user_library, ProceduralPlan::default(), ReplayChoice::default())
+    }
+
+    /// [`Self::start`] with the choices starting at `initial` (a re-import repeats the earlier import's choices).
+    pub fn start_with(
+        source: PathBuf,
+        library: Vec<PathBuf>,
+        user_library: Option<PathBuf>,
+        initial: ProceduralPlan,
+        initial_replay: ReplayChoice,
+    ) -> ImportReview {
         let (path, folders) = (source.clone(), library.clone());
         let job = Job::spawn(move |_, tx| {
             let _ = tx.send(analyse(&path, &folders));
         });
-        ImportReview { source, library, user_library, state: State::Analysing(job) }
+        ImportReview { source, library, user_library, initial, initial_replay, state: State::Analysing(job) }
     }
 
     pub fn source(&self) -> &Path {
@@ -89,19 +104,19 @@ impl ImportReview {
             State::Analysing(job) => {
                 let Some(result) = job.poll().into_iter().next() else {
                     if job.is_finished() {
-                        // The analysis thread ended without an answer: import as before replacements existed.
-                        return ReviewOutcome::Import(ProceduralPlan::default(), None, ReplayChoice::default());
+                        // The analysis thread ended without an answer: import with the initial choices.
+                        return ReviewOutcome::Import(self.initial.clone(), None, self.initial_replay);
                     }
                     ctx.request_repaint_after(std::time::Duration::from_millis(100));
                     return ReviewOutcome::Pending;
                 };
                 match result {
                     Ok(f) if f.has_choices() => {
-                        self.state = State::Choosing(Box::new(ReviewDialog::new(f, self.user_library.is_some())));
+                        self.state = State::Choosing(Box::new(ReviewDialog::new(f, self.user_library.is_some()).prefilled(&self.initial, self.initial_replay)));
                         ReviewOutcome::Pending
                     }
                     // Nothing to choose (or the layer document is unreadable, which the importer reports).
-                    _ => ReviewOutcome::Import(ProceduralPlan::default(), None, ReplayChoice::default()),
+                    _ => ReviewOutcome::Import(self.initial.clone(), None, self.initial_replay),
                 }
             }
             State::Choosing(dialog) => match dialog.show(ctx, &self.source) {

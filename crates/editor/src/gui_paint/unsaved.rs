@@ -9,6 +9,8 @@ use super::{PaintMode, Pick};
 use eframe::egui::{self, ViewportCommand};
 use materialcraft::diag::{Area, SinkExt};
 use materialcraft::paint::format;
+use materialcraft_substance::translate::layers::replay::ReplayChoice;
+use materialcraft_substance::translate::replacements::ProceduralPlan;
 use std::path::PathBuf;
 
 /// What happens after the document was saved or its changes were given up.
@@ -21,6 +23,8 @@ pub enum Then {
     OpenPath(PathBuf),
     /// Open the New project dialog.
     NewProject,
+    /// Re-import this `.spp` with these choices (File > Re-import from source).
+    Reimport(PathBuf, ProceduralPlan, ReplayChoice),
     /// Close the window.
     Quit,
 }
@@ -31,6 +35,7 @@ impl Then {
         match self {
             Then::Close => "closing it",
             Then::Open(_) | Then::OpenPath(_) => "opening another document",
+            Then::Reimport(..) => "re-importing it",
             Then::NewProject => "making a new project",
             Then::Quit => "quitting",
         }
@@ -74,6 +79,7 @@ impl PaintMode {
             }
             Then::OpenPath(path) => self.open_reviewed(path),
             Then::NewProject => self.open_new_project(),
+            Then::Reimport(source, plan, replay) => self.start_reimport(source, plan, replay),
             Then::Quit => {
                 self.saving.quit_confirmed = true;
                 self.saving.close_window = true;
