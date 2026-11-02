@@ -9,6 +9,9 @@ use crate::translate::layers::replay::REPLAYED;
 use crate::translate::layers::{Computability, StackStrategy};
 use std::fmt;
 
+/// Whether a status is of one kind.
+type StatusTest = fn(&Computability) -> bool;
+
 /// How many of the worst compared channels the summary lists.
 const WORST: usize = 20;
 
@@ -70,7 +73,7 @@ impl Verification {
             count(StackStrategy::CacheDisagrees)
         )?;
         let all: usize = self.sets.iter().map(|s| s.channels.len()).sum();
-        let kinds: [(&str, fn(&Computability) -> bool); 3] = [
+        let kinds: [(&str, StatusTest); 3] = [
             ("exact", |s| matches!(s, Computability::Exact)),
             ("replaced", |s| matches!(s, Computability::Replaced(_))),
             ("approximated", |s| matches!(s, Computability::Approximated(_))),

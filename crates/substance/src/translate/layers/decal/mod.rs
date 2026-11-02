@@ -37,6 +37,9 @@ fn mode(g: HitGranularity) -> PickMode {
     }
 }
 
+/// One run while collecting: its colour, granularity and triangles by part name.
+type Run = ([f32; 3], HitGranularity, BTreeMap<String, BTreeSet<u32>>);
+
 /// Resolves the decal's hits on `geometry` (`None`: the set's mesh is not available).
 pub fn runs(geometry: Option<&SetGeometry>, decal: &PolygonFillEffect) -> DecalRuns {
     let mut status = Computability::Exact;
@@ -55,8 +58,7 @@ pub fn runs(geometry: Option<&SetGeometry>, decal: &PolygonFillEffect) -> DecalR
             format!("polygon fill: {} picks not read", decal.unread),
         )));
     }
-    // (colour, granularity, triangles by part name) per run
-    let mut runs: Vec<([f32; 3], HitGranularity, BTreeMap<String, BTreeSet<u32>>)> = Vec::new();
+    let mut runs: Vec<Run> = Vec::new();
     for hit in &decal.hits {
         if hit.view == PainterView::Mesh {
             // fitted on one project, where one island still differs (see `pick`)

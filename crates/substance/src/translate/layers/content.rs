@@ -21,6 +21,9 @@ use materialcraft::paint::{BlendMode, Channel, TiledImage};
 use materialcraft::projection::Projection;
 
 /// The value one channel gets.
+// Mostly an image when not a constant, and one value per channel of the layer being imported: boxing the image
+// would only add an allocation.
+#[allow(clippy::large_enum_variant)]
 pub enum ChannelValue {
     /// A constant in the channel's stored encoding, with the content's coverage (0..1).
     Uniform { value: [f32; 4], coverage: f32 },
@@ -52,6 +55,9 @@ struct State {
     written: bool,
 }
 
+// The variants differ in size (an image beside a few floats), but an `Acc` only lives while one channel of one layer
+// is evaluated: boxing the image would add an allocation per evaluation for no saving.
+#[allow(clippy::large_enum_variant)]
 enum Acc {
     Empty,
     Uniform([f32; 4]),

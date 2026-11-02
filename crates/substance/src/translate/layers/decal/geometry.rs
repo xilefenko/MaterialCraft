@@ -41,7 +41,10 @@ impl GeometryPart<'_> {
 }
 
 /// Every triangle of the set as one list, for the BVH.
-struct AllTriangles<'a>(&'a [(usize, usize, [Vec3; 3])]);
+/// A triangle of a part: (part index, triangle index, corners).
+type PartTriangle = (usize, usize, [Vec3; 3]);
+
+struct AllTriangles<'a>(&'a [PartTriangle]);
 
 impl Triangles for AllTriangles<'_> {
     fn triangle_count(&self) -> usize {
@@ -58,8 +61,8 @@ pub struct SetGeometry<'m> {
     /// The bounding sphere of the whole mesh (every set), which Painter's model-sized brushes are measured
     /// against.
     pub scene: Option<Sphere>,
-    /// (part, triangle, corners) of every valid triangle, and the BVH over them.
-    triangles: OnceLock<(Vec<(usize, usize, [Vec3; 3])>, Bvh)>,
+    /// Every valid triangle, and the BVH over them.
+    triangles: OnceLock<(Vec<PartTriangle>, Bvh)>,
 }
 
 impl<'m> SetGeometry<'m> {

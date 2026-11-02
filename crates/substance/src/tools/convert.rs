@@ -218,7 +218,7 @@ fn replaced_materials(doc: &Document) -> usize {
     let mut n = 0;
     for set in &doc.texture_sets {
         for (_, l) in LayerWalk::new(&set.layers) {
-            n += usize::from(matches!(&l.kind, LayerKind::Fill(f) if is_replaced(&f)));
+            n += usize::from(matches!(&l.kind, LayerKind::Fill(f) if is_replaced(f)));
             n += l
                 .effects
                 .iter()
